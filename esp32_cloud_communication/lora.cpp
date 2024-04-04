@@ -123,16 +123,22 @@ void lora_setup(){
   Serial.println(str);
 }
 
-void lora_transmit(String message) { // This function sends messages via Lora
-  Serial.println("Sent message: " + message);
-  loraSerial.println("radio tx " + message);
+void lora_transmit(JsonDocument * sensor_info) { // This function sends messages via Lora
+  // Convert the JSON message to a string
+  serializeJson(*sensor_info, str);
+
+  // Convert the ascii charachters to hex numbers
+  int len = str.length(); char output[len*2]; int i;
+  for(i = 0; i < len; i++){
+    sprintf(output+i*2, "%02X", str[i]);
+  }
+
+  loraSerial.println("radio tx " + String(output));
   str = loraSerial.readStringUntil('\n');
-  Serial.println(str);
   str = loraSerial.readStringUntil('\n');
-  Serial.println("Message confirmation was: " + str);
 }
 
-String lora_receive() { // This function reads messages via Lora
+void lora_receive(JsonDocument * control_info) { // This function reads messages via Lora
   Serial.println("waiting for a message");
   loraSerial.println("radio rx 0"); //wait for 60 seconds to receive
   str = loraSerial.readStringUntil('\n');
@@ -146,12 +152,23 @@ String lora_receive() { // This function reads messages via Lora
     }
 
     if ( str.indexOf("radio_rx") == 0 ) { //checking if data was reeived (equals radio_rx = <data>). indexOf returns position of "radio_rx"
-      str.remove(0, 11); // remove "radio rx 0  "
-      return str; // received data
+      // remove "radio rx 0  "
+      str.remove(0, 10);
+
+      // convert hex to ascii
+      int len = str.length() / 2; char input[len]; int i;
+      char str_copy[len*2];
+      str.toCharArray(str_copy, len*2); // avoid error in following loop FIXME
+      for(i = 0; i < len; i++){
+        sscanf(str_copy+2*i, "%02X", input+i);
+      }
+
+      // Finally convert the string to JSON
+      deserializeJson(*control_info, input);
     } else {
-      return "Received nothing";
+      Serial.println("Received nothing");
     }
   } else {
-    return "radio not going into receive mode";
+    Serial.println("radio not going into receive mode");
   }
 }
