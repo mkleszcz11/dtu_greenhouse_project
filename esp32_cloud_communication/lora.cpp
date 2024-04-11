@@ -123,14 +123,11 @@ void lora_setup(){
   Serial.println(str);
 }
 
-void lora_transmit(JsonDocument * sensor_info) { // This function sends messages via Lora
-  // Convert the JSON message to a string
-  serializeJson(*sensor_info, str);
-
-  // Convert the ascii charachters to hex numbers
-  int len = str.length(); char output[len*2]; int i;
-  for(i = 0; i < len; i++){
-    sprintf(output+i*2, "%02X", str[i]);
+void lora_transmit(uint8_t * sending_info, int n) { // This function sends messages via Lora
+  // Convert the list to hex numbers
+  char output[n*2+2]; int i;
+  for(i = 0; i <= n; i++){
+    sprintf(output+i*2, "%02X", sending_info[i]);
   }
 
   loraSerial.println("radio tx " + String(output));
@@ -138,12 +135,14 @@ void lora_transmit(JsonDocument * sensor_info) { // This function sends messages
   str = loraSerial.readStringUntil('\n');
 }
 
-void lora_receive(JsonDocument * control_info) { // This function reads messages via Lora
+// Maybe this need to be a double pointer
+void lora_receive(uint8_t * receiving_info, int n) { // This function reads messages via Lora
   Serial.println("waiting for a message");
   loraSerial.println("radio rx 0"); //wait for 60 seconds to receive
   str = loraSerial.readStringUntil('\n');
   Serial.println(str);
   delay(20);
+
   if ( str.indexOf("ok") == 0 ) {
     str = String("");
 
@@ -155,16 +154,16 @@ void lora_receive(JsonDocument * control_info) { // This function reads messages
       // remove "radio rx 0  "
       str.remove(0, 10);
 
-      // convert hex to ascii
-      int len = str.length() / 2; char input[len]; int i;
-      char str_copy[len*2];
-      str.toCharArray(str_copy, len*2); // avoid error in following loop FIXME
-      for(i = 0; i < len; i++){
-        sscanf(str_copy+2*i, "%02X", input+i);
-      }
+      // convert hex to uint8_t list
+      // Throw String to char[] to avoid error in following loop - FIXME
+      int len = str.length(); char val[2];
+      char str_copy[len]; int i;
+      str.toCharArray(str_copy, len);
 
-      // Finally convert the string to JSON
-      deserializeJson(*control_info, input);
+      for(i = 0; i <= n; i++){
+        sscanf(str_copy+2*i, "%02X", val);
+        receiving_info[i] = uint8_t(val[0]);
+      }
     } else {
       Serial.println("Received nothing");
     }
