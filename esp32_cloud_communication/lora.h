@@ -2,10 +2,9 @@
 #define LORA_H
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 
 void lora_setup();
-void lora_transmit(JsonDocument * sensor_info);
-void lora_receive(JsonDocument * control_info);
+void lora_transmit(uint8_t * sending_info, int n);
+void lora_receive(uint8_t * receiving_info, int n);
 
 #endif
