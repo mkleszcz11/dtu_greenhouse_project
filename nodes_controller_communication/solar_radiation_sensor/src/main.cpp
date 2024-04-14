@@ -5,30 +5,21 @@
  * of Things (IoT)" at the Technical University of Denmark.
  *
  * Code is based on the examples from the ArduinoBLE library, github link -> https://github.com/nkolban/ESP32_BLE_Arduino
-*/
-/*
-  STATE MACHINE: -FIRST_CONNECTION
-                 -LOW_CONSUMPTION
-                 -ACTUATOR_MODE
-  
-  * FIRST_CONNECTION: State waiting for the first time the sensor conencts to device
-  * LOW_CONSUMTPION: State when actuator is not needed. Send sensor value and sleeps for TIME_TO_SLEEP_LOW_CONSUMPTION .
-  * ACTUATOR_MODE: State when actuator is needed. Send sensor values every interval value.
-*/
-
+ */
 
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
 
-#define SERVICE_UUID "A077916E-2CBE-45E3-BB35-4514C322606F"
+#define SERVICE_UUID "9E61059E-B1CF-4953-A632-39CFD6A97255"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define uS_TO_S_FACTOR 1000000ULL  /* Conversion factor for micro seconds to seconds */
 #define TIME_TO_SLEEP_LOW_CONSUMPTION  60        /* Time ESP32 will go to sleep (in seconds) (5 minutes)*/
 #define TIME_TO_SLEEP_ACTUATOR_MODE 30 /* Time ESP32 will go to sleep (in seconds)*/
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
+
 
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
@@ -71,7 +62,7 @@ bool send_message_to_device(String message){
   return true;
 }
 void print_current_state(){
-  Serial.print("[Humidity Sensor] Current State: ");
+  Serial.print("[Solar Radiation Sensor] Current State: ");
   switch(currentState){
     case FIRST_CONNECTION:
       Serial.println("FIRST_CONNECTION");
@@ -93,7 +84,7 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
     std::string value = characteristic->getValue();
 
     if (value.length() > 0) {
-      Serial.print("[Humidity Sensor] Received Value: ");
+      Serial.print("[Solar Radiation Sensor] Received Value: ");
       for (int i = 0; i < value.length(); i++)
         Serial.print(value[i]);
       Serial.println();
@@ -111,7 +102,7 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
       sendMessage=false;
     }
     else{
-      Serial.println("[Humidity Sensor] Keep the same State");
+      Serial.println("[Solar Radiation Sensor] Keep the same State");
       print_current_state();
     }
     if(stateMachineStarted) messageACK=true; 
@@ -124,19 +115,19 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
 
 class ServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) {
-        Serial.println("[Humidity Sensor] Client Connected");
+        Serial.println("[Solar Radiation Sensor] Client Connected");
         uint32_t connId = param->connect.conn_id; // Get the connection ID
         connectionIDs.push_back(connId); // Add connection ID to the list
-        Serial.print("[Humidity Sensor] Connection ID added: ");
+        Serial.print("[Solar Radiation Sensor] Connection ID added: ");
         Serial.println(connId);
         // Add client to connections list
     }
 
     void onDisconnect(BLEServer* pServer) {
-        Serial.println("[Humidity Sensor] Client Disconnected");
+        Serial.println("[Solar Radiation Sensor] Client Disconnected");
         connectionIDs.clear(); 
-        Serial.println("[Humidity Sensor] All connection IDs cleared (simple example)");
-        Serial.println("[Humidity Sensor] Trying to reconnect...");
+        Serial.println("[Solar Radiation Sensor] All connection IDs cleared (simple example)");
+        Serial.println("[Solar Radiation Sensor] Trying to reconnect...");
         BLEDevice::startAdvertising();
         // Remove client from connections list
     }
@@ -147,7 +138,7 @@ void setup() {
 
     
     Serial.begin(115200);
-    BLEDevice::init("SensorHumidity");                // Initialize the BLE device.
+    BLEDevice::init("SensorSolarRadiation");                // Initialize the BLE device.
     pServer = BLEDevice::createServer();              // Create the BLE Server.
     pServer->setCallbacks(new ServerCallbacks());     // Set server callbacks
     pService = pServer->createService(SERVICE_UUID);  // Create the BLE Service.
@@ -171,7 +162,7 @@ void setup() {
     pAdvertising->setMinPreferred(0x12);                            // Set the minimum preferred interval value to 0x12 (shorter interval means faster connection, means more power consumption).
     BLEDevice::startAdvertising();                                  // Start advertising (now the device is visible to other devices).
     
-    Serial.println("[Humidity Sensor] Device advertising, waiting for connections...");
+    Serial.println("[Solar Radiation Sensor] Device advertising, waiting for connections...");
     pinMode(LED, OUTPUT);
 
     /*If it's not the starting and setup is run, it means it comes from a deep sleep mode*/
@@ -187,7 +178,7 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis(); // Get the current time in milliseconds.
-  String message_to_sent = "Hey, I am a humidity sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
+  String message_to_sent = "Hey, I am a solar radiation sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
 
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; 
@@ -218,8 +209,8 @@ void loop() {
               if(messageACK){
                 bootCount= currentState; //to save state before sleep mode
                 esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_LOW_CONSUMPTION * uS_TO_S_FACTOR);
-                Serial.println("[Humidity Sensor] Setup ESP32 to deep sleep for " + String(TIME_TO_SLEEP_LOW_CONSUMPTION) +" Seconds");        
-                Serial.println("[Humidity Sensor] Entering Deep Sleep Mode...");
+                Serial.println("[Solar Radiation Sensor] Setup ESP32 to deep sleep for " + String(TIME_TO_SLEEP_LOW_CONSUMPTION) +" Seconds");        
+                Serial.println("[Solar Radiation Sensor] Entering Deep Sleep Mode...");
                 Serial.flush(); 
                 esp_deep_sleep_start();
               }
@@ -228,8 +219,8 @@ void loop() {
               bootCount= currentState; //to keep the current state saved in RTC
               /*
               esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP_ACTUATOR_MODE * uS_TO_S_FACTOR);
-              Serial.println("[Humidity Sensor] Setup ESP32 to deep sleep for " + String(TIME_TO_SLEEP_ACTUATOR_MODE) +" Seconds");        
-              Serial.println("[Humidity Sensor] Entering Deep Sleep Mode...");
+              Serial.println("[Solar Radiation Sensor] Setup ESP32 to deep sleep for " + String(TIME_TO_SLEEP_ACTUATOR_MODE) +" Seconds");        
+              Serial.println("[Solar Radiation Sensor] Entering Deep Sleep Mode...");
               Serial.flush(); 
               esp_deep_sleep_start();
               */
@@ -247,15 +238,15 @@ void loop() {
       case FIRST_CONNECTION:
               break;
       default: 
-              Serial.println("[Humidity Sensor] State not valid");
+              Serial.println("[Solar Radiation Sensor] State not valid");
       } 
   }
 
   if(sendMessage){
     if(send_message_to_device(message_to_sent)){
-      Serial.println("[Humidity Sensor] Message sent to Main Controller");
+      Serial.println("[Solar Radiation Sensor] Message sent to Main Controller");
     }
-    else  Serial.println("[Humidity Sensor] Message not sent to Main Controller");
+    else  Serial.println("[Solar Radiation Sensor] Message not sent to Main Controller");
   }
   // Do other stuff here.
 }
