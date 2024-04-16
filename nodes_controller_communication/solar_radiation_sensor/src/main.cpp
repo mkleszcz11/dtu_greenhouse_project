@@ -11,6 +11,7 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <math.h>
 
 #define SERVICE_UUID "9E61059E-B1CF-4953-A632-39CFD6A97255"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -33,6 +34,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
+RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -45,6 +47,7 @@ States currentState;
 bool transition=false; //to know when a transition happens
 bool messageACK=false; //ACK message. So this way, we are sure the value is received
 bool sendMessage=false; //to know when message should be sent
+float readValue;
 // Function to transition to a new state
 void changeState(States nextState){
   currentState=nextState;
@@ -61,6 +64,11 @@ bool send_message_to_device(String message){
   sendMessage=false;
   return true;
 }
+/*function to formatData that will be sent to the master*/
+String formatData(float value) {
+  return String(value);
+}
+
 void print_current_state(){
   Serial.print("[Solar Radiation Sensor] Current State: ");
   switch(currentState){
@@ -178,7 +186,6 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis(); // Get the current time in milliseconds.
-  String message_to_sent = "Hey, I am a solar radiation sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
 
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; 
@@ -243,10 +250,15 @@ void loop() {
   }
 
   if(sendMessage){
+    /*Hardcoded changes at the values to make sure State Machine is working correctly*/
+    safeReadValue=safeReadValue+1; /*HARDCODE*/
+    readValue=fmod(safeReadValue,4); /*HARDCODE*/
+
+    String message_to_sent=formatData(readValue);
     if(send_message_to_device(message_to_sent)){
-      Serial.println("[Solar Radiation Sensor] Message sent to Main Controller");
+      Serial.println("[Solar Radiation Sensor] Message sent to Main Controller "+ String(readValue));
     }
-    else  Serial.println("[Solar Radiation Sensor] Message not sent to Main Controller");
+    else  Serial.println("[Solar Radiation Sensor] Message not sent to Main Controller ");
   }
   // Do other stuff here.
 }

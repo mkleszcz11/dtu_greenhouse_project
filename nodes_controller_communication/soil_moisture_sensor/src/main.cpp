@@ -6,21 +6,12 @@
  *
  * Code is based on the examples from the ArduinoBLE library, github link -> https://github.com/nkolban/ESP32_BLE_Arduino
  */
-/*
-  STATE MACHINE: -FIRST_CONNECTION
-                 -LOW_CONSUMPTION
-                 -ACTUATOR_MODE
-  
-  * FIRST_CONNECTION: State waiting for the first time the sensor conencts to device
-  * LOW_CONSUMTPION: State when actuator is not needed. Send sensor value and sleeps for TIME_TO_SLEEP_LOW_CONSUMPTION .
-  * ACTUATOR_MODE: State when actuator is needed. Send sensor values every interval value.
-*/
-
 
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <math.h>
 
 #define SERVICE_UUID "2E01EA51-1E73-4DAC-886D-08C04C040282"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -29,6 +20,7 @@
 #define TIME_TO_SLEEP_ACTUATOR_MODE 30 /* Time ESP32 will go to sleep (in seconds)*/
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
+
 
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
@@ -42,6 +34,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
+RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -51,9 +44,10 @@ enum States {
 };
 
 States currentState;
-bool transition=false; //to know when a transition in state machine happens
+bool transition=false; //to know when a transition happens
 bool messageACK=false; //ACK message. So this way, we are sure the value is received
 bool sendMessage=false; //to know when message should be sent
+float readValue;
 // Function to transition to a new state
 void changeState(States nextState){
   currentState=nextState;
@@ -70,6 +64,11 @@ bool send_message_to_device(String message){
   sendMessage=false;
   return true;
 }
+/*function to formatData that will be sent to the master*/
+String formatData(float value) {
+  return String(value);
+}
+
 void print_current_state(){
   Serial.print("[Soil Moisture Sensor] Current State: ");
   switch(currentState){
@@ -143,6 +142,8 @@ class ServerCallbacks : public BLEServerCallbacks {
 };
 
 void setup() {
+
+
     
     Serial.begin(115200);
     BLEDevice::init("SensorSoilMoisture");                // Initialize the BLE device.
@@ -185,7 +186,6 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis(); // Get the current time in milliseconds.
-  String message_to_sent = "Hey, I am a soil moisture sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
 
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; 
@@ -250,10 +250,15 @@ void loop() {
   }
 
   if(sendMessage){
+    /*Hardcoded changes at the values to make sure State Machine is working correctly*/
+    safeReadValue=safeReadValue+1; /*HARDCODE*/
+    readValue=fmod(safeReadValue,5); /*HARDCODE*/
+
+    String message_to_sent=formatData(readValue);
     if(send_message_to_device(message_to_sent)){
-      Serial.println("[Soil Moisture Sensor] Message sent to Main Controller");
+      Serial.println("[Soil Moisture Sensor] Message sent to Main Controller "+ String(readValue));
     }
-    else  Serial.println("[Soil Moisture Sensor] Message not sent to Main Controller");
+    else  Serial.println("[Soil Moisture Sensor] Message not sent to Main Controller ");
   }
   // Do other stuff here.
 }

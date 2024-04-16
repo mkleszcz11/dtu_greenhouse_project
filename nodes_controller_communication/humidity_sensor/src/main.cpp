@@ -21,6 +21,7 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <math.h>
 
 #define SERVICE_UUID "A077916E-2CBE-45E3-BB35-4514C322606F"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -42,6 +43,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
+RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -54,6 +56,9 @@ States currentState;
 bool transition=false; //to know when a transition happens
 bool messageACK=false; //ACK message. So this way, we are sure the value is received
 bool sendMessage=false; //to know when message should be sent
+
+float readTemp;
+float readHum;
 // Function to transition to a new state
 void changeState(States nextState){
   currentState=nextState;
@@ -70,6 +75,12 @@ bool send_message_to_device(String message){
   sendMessage=false;
   return true;
 }
+
+/*function to formatData that will be sent to the master*/
+String formatData(float temp, float hum) {
+  return String(temp) + ";" + String(hum);
+}
+
 void print_current_state(){
   Serial.print("[Humidity Sensor] Current State: ");
   switch(currentState){
@@ -187,8 +198,8 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis(); // Get the current time in milliseconds.
-  String message_to_sent = "Hey, I am a humidity sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
-
+  /*String message_to_sent = "Hey, I am a humidity sensor, my timestamp" + String(currentMillis); // Message to be sent to the main controller.
+  */
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; 
     print_current_state();
@@ -242,7 +253,6 @@ void loop() {
               }
               if(messageACK) messageACK=false;
 
-
               break;
       case FIRST_CONNECTION:
               break;
@@ -252,8 +262,15 @@ void loop() {
   }
 
   if(sendMessage){
+      /*Hardcoded changes at the values to make sure State Machine is working correctly*/
+    safeReadValue=safeReadValue+1; /*HARDCODE*/
+    
+    readTemp=fmod(safeReadValue,4); /*HARDCODE*/
+    readHum=fmod(safeReadValue,5); /*HARDCODE*/
+    
+    String message_to_sent=formatData(readTemp,readHum);
     if(send_message_to_device(message_to_sent)){
-      Serial.println("[Humidity Sensor] Message sent to Main Controller");
+      Serial.println("[Humidity Sensor] Message sent to Main Controller " + String(readTemp)+ " "+ String(readHum));
     }
     else  Serial.println("[Humidity Sensor] Message not sent to Main Controller");
   }

@@ -183,37 +183,33 @@ static void notifyCallback(
   Serial.println(buffer);
   
   /*LATER: IMPLEMENT READ THE STRING TO FLOAT*/
-  float readValue;
 
-  readValue=4;
-  /* Evaluate if the read value for this controlPair follows the boundaries and if it doesn't, boundariesRespected turn to False*/ 
+  float readValue1, readValue2=0.0; //readValue2 is used only for HUMIDITY_TEMPERATURE_SENSOR
 
-  /*NOTE: HUMIDITY_TEMPERATURE_SENSOR device is an exception because it has 2 values, 2 controlPairs (the actuator is the same)*/
+  readValue1=atof(buffer);
+  char* separator = strchr(buffer, ';'); // Find the position of the semicolon
+
+  if(separator!=nullptr){ //HUMIDITY_TEMPERATURE_SENSOR
+    readValue2=atof(separator +1);
+  }
+
+  Serial.println("[Main Controller] Received values: " + String(readValue1)+ " "+ String(readValue2));
 
   /*This part is important to define State Machine transitions */
   switch(deviceIndexNotification){
     case HUMIDITY_TEMPERATURE_SENSOR:
-      /*the way to read the values will be different*/
-      float readValueT, readValueH;
+      //readValue1 is temperature
+      //readValue2 is humidity
 
-      readValueT=readValue;
-      readValueH=readValue;
-      
-      /*To simulate the value has changed*/
-      if(devices[deviceIndexNotification].currentState==ACTUATOR_MODE){
-        readValueT=1;
-        readValueH=1;
-      }
-
-      if(controlPairs[HUMIDITY_WINDOW].respectsLimits(readValueH) && /* Both values respect the boundaries and it's in ACTUATOR MODE*/
-      controlPairs[TEMPERATURE_WINDOW].respectsLimits(readValueT) && 
+      if(controlPairs[HUMIDITY_WINDOW].respectsLimits(readValue2) && /* Both values respect the boundaries and it's in ACTUATOR MODE*/
+      controlPairs[TEMPERATURE_WINDOW].respectsLimits(readValue1) && 
       devices[deviceIndexNotification].currentState==ACTUATOR_MODE)
       { 
         devices[deviceIndexNotification].changeState(LOW_CONSUMPTION);
         Serial.println(String("[Main Controller] Transition Device ") + devices[deviceIndexNotification].device->getName().c_str());
       }
-      else if((!controlPairs[HUMIDITY_TEMPERATURE_SENSOR].respectsLimits(readValueH) || 
-            !controlPairs[TEMPERATURE_WINDOW].respectsLimits(readValueT)) && 
+      else if((!controlPairs[HUMIDITY_TEMPERATURE_SENSOR].respectsLimits(readValue2) || 
+            !controlPairs[TEMPERATURE_WINDOW].respectsLimits(readValue1)) && 
             devices[deviceIndexNotification].currentState==LOW_CONSUMPTION ) /*One of the values does not respect the boundaries and it's in LOW_CONSUMPTION*/
       {
         devices[deviceIndexNotification].changeState(ACTUATOR_MODE);
@@ -222,14 +218,14 @@ static void notifyCallback(
       break; 
     default: //controlPair index is the same as device
 
-      if(controlPairs[deviceIndexNotification].respectsLimits(readValue) && /* value respect the boundaries and it's in ACTUATOR MODE*/
+      if(controlPairs[deviceIndexNotification].respectsLimits(readValue1) && /* value respect the boundaries and it's in ACTUATOR MODE*/
       devices[deviceIndexNotification].currentState==ACTUATOR_MODE)
       {
         devices[deviceIndexNotification].currentState=LOW_CONSUMPTION;
         devices[deviceIndexNotification].transition=true;
         Serial.println(String("[Main Controller] Transition Device ") + devices[deviceIndexNotification].device->getName().c_str());
       }
-      else if(!controlPairs[deviceIndexNotification].respectsLimits(readValue) && 
+      else if(!controlPairs[deviceIndexNotification].respectsLimits(readValue1) && 
             devices[deviceIndexNotification].currentState==LOW_CONSUMPTION ) /* value does not respect the boundaries and it's in LOW_CONSUMPTION*/
       {
         devices[deviceIndexNotification].currentState=ACTUATOR_MODE;
