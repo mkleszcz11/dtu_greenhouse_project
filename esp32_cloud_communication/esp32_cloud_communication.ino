@@ -2,11 +2,10 @@
 
 // Is uint8_t enough, or should we make uint16_t?
 
-// 1. temperature 2. air humidity 3. soil moisture
-uint8_t sensor_info[2];
-// 1. temperature target 2. air himidity target 3. soil moisture target
-//uint8_t control_info[2];
-uint8_t control_info[] = {4, 5, 6};
+// 1. Humidity 2. Soil Moisture 3. Temperature 4. Water Level
+uint8_t sensor_info[3];
+// 1. Humidity L, 2. Humidity U, 3. Soil Moisture L, 4. Soil Moisture U, 5. Temperature L, 6. Temperature U, 7. Water Level L, 8. Water Level L
+uint8_t control_info[7];
 
 void setup() {
   Serial.begin(57600);

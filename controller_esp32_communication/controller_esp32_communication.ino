@@ -2,11 +2,11 @@
 
 // Is uint8_t enough, or should we make uint16_t?
 
-// 1. temperature 2. air humidity 3. soil moisture
-//uint8_t sensor_info[2];
-uint8_t sensor_info[] = {27, 60, 30}; // set for testing
-// 1. temperature target 2. air himidity target 3. soil moisture target
-uint8_t control_info[2];
+// 1. Humidity 2. Soil Moisture 3. Temperature 4. Water Level
+uint8_t sensor_info[3];
+// uint8_t sensor_info[] = {1, 2, 3};
+// 1. Humidity L, 2. Humidity U, 3. Soil Moisture L, 4. Soil Moisture U, 5. Temperature L, 6. Temperature U, 7. Water Level L, 8. Water Level L
+uint8_t control_info[7];
 
 void setup() {
   Serial.begin(57600);
@@ -15,8 +15,8 @@ void setup() {
 
 void loop() {
   // Transmit and recieve Lora signals
-  lora_transmit(sensor_info, 2);
-  lora_receive(control_info, 2); // control_info not being the correct size could cause segmentation fault
+  lora_transmit(sensor_info, 3);
+  lora_receive(control_info, 7); // control_info not being the correct size could cause segmentation fault
 
   // FOR TESTING - Print the transmited and recieved signals
   Serial.print("Sent the sensor info: ");
