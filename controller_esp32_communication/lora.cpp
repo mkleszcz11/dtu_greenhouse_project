@@ -123,11 +123,11 @@ void lora_setup(){
   Serial.println(str);
 }
 
-void lora_transmit(uint8_t * sending_info, int n) { // This function sends messages via Lora
+void lora_transmit(uint16_t * sending_info, int n) { // This function sends messages via Lora
   // Convert the list to hex numbers
   char output[n*2+2]; int i;
   for(i = 0; i <= n; i++){
-    sprintf(output+i*2, "%02X", sending_info[i]);
+    sprintf(output+i*2, "%04", sending_info[i]);
   }
 
   loraSerial.println("radio tx " + String(output));
@@ -136,7 +136,7 @@ void lora_transmit(uint8_t * sending_info, int n) { // This function sends messa
 }
 
 // Maybe this need to be a double pointer
-void lora_receive(uint8_t * receiving_info, int n) { // This function reads messages via Lora
+void lora_receive(uint16_t * receiving_info, int n) { // This function reads messages via Lora
   Serial.println("waiting for a message");
   loraSerial.println("radio rx 0"); //wait for 60 seconds to receive
   str = loraSerial.readStringUntil('\n');
@@ -161,7 +161,7 @@ void lora_receive(uint8_t * receiving_info, int n) { // This function reads mess
       str.toCharArray(str_copy, len);
 
       for(i = 0; i <= n; i++){
-        sscanf(str_copy+2*i, "%02X", val);
+        sscanf(str_copy+2*i, "%024", val);
         receiving_info[i] = uint8_t(val[0]);
       }
     } else {
