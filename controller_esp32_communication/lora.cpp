@@ -125,9 +125,9 @@ void lora_setup(){
 
 void lora_transmit(uint16_t * sending_info, int n) { // This function sends messages via Lora
   // Convert the list to hex numbers
-  char output[n*2+2]; int i;
+  char output[n*4+4]; int i;
   for(i = 0; i <= n; i++){
-    sprintf(output+i*2, "%04", sending_info[i]);
+    sprintf(output+i*4, "%04X", sending_info[i]);
   }
 
   loraSerial.println("radio tx " + String(output));
@@ -156,13 +156,13 @@ void lora_receive(uint16_t * receiving_info, int n) { // This function reads mes
 
       // convert hex to uint8_t list
       // Throw String to char[] to avoid error in following loop - FIXME
-      int len = str.length(); char val[2];
+      int len = str.length(); char val[4];
       char str_copy[len]; int i;
       str.toCharArray(str_copy, len);
 
       for(i = 0; i <= n; i++){
-        sscanf(str_copy+2*i, "%024", val);
-        receiving_info[i] = uint8_t(val[0]);
+        sscanf(str_copy+4*i, "%04X", val);
+        receiving_info[i] = uint16_t(val[0]);
       }
     } else {
       Serial.println("Received nothing");

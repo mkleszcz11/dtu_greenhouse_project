@@ -20,10 +20,10 @@ void loop() {
 
   // FOR TESTING - Print the transmited and recieved signals
   Serial.print("Sent the sensor info: ");
-  char str_sensor_info[64]; sprintf(str_sensor_info, "[%02d, %02d, %02d]", sensor_info[0], sensor_info[1], sensor_info[2]);
+  char str_sensor_info[64]; sprintf(str_sensor_info, "[%d, %d, %d]", sensor_info[0], sensor_info[1], sensor_info[2]);
   Serial.println(str_sensor_info);
 
   Serial.print("Got the control info: ");
-  char str_control_info[64]; sprintf(str_control_info, "[%02d, %02d, %02d]", control_info[0], control_info[1], control_info[2]);
+  char str_control_info[64]; sprintf(str_control_info, "[%d, %d, %d]", control_info[0], control_info[1], control_info[2]);
   Serial.println(str_control_info);
 }
