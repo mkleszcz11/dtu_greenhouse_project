@@ -9,6 +9,7 @@ For now, use following files:
  - soil_moisture_sensor 
  - humidity_sensor
  - solar_radiation_sensor
+ - lora_test_outside_greenhouse - node outside the greenhouse, we will change the name later
 
 'heater' is disabled, as connections are limited to previously mentioned sensors and actuators.
 
@@ -24,6 +25,15 @@ pkill -f /dev/ttyUSB0; platformio run --target upload --upload-port /dev/ttyUSB0
 pkill -f /dev/ttyUSB1; platformio run --target upload --upload-port /dev/ttyUSB1; screen /dev/ttyUSB1 115200
 pkill -f /dev/ttyUSB2; platformio run --target upload --upload-port /dev/ttyUSB2; screen /dev/ttyUSB2 115200
 pkill -f /dev/ttyUSB3; platformio run --target upload --upload-port /dev/ttyUSB3; screen /dev/ttyUSB3 115200
-pkill -f /dev/ttyUSB4; platformio run --target upload --upload-port /dev/ttyUSB4; screen /dev/ttyUSB4 115200
+pkill -f /dev/ttyUSB4; platformio run --target upload --upload-port /dev/ttyUSB4; screen /dev/ttyUSB4 57600
+
+
+Main controller sends updates via LoRa only when it recieves a new reading from the sensor.
+We are senting 1 byte every update:
+ABCDEFGH
+
+ABC - sensor type (001 - soil moisture, 010 - humidity, 011 - temperature, 100 - heater, 101 - solar radiation)
+
+DEFGH - sensor reading (0-1023)
 
 To run without the sensors connected, comment out the line with the tag HARDCODE and comment the sensor reading lines
