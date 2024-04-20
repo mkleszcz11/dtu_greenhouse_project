@@ -8,7 +8,7 @@ For now, use following files:
  - main_controller
  - soil_moisture_sensor 
  - humidity_sensor
- - water_pump_actuator
+ - solar_radiation_sensor
 
 'heater' is disabled, as connections are limited to previously mentioned sensors and actuators.
 
@@ -26,3 +26,4 @@ pkill -f /dev/ttyUSB2; platformio run --target upload --upload-port /dev/ttyUSB2
 pkill -f /dev/ttyUSB3; platformio run --target upload --upload-port /dev/ttyUSB3; screen /dev/ttyUSB3 115200
 pkill -f /dev/ttyUSB4; platformio run --target upload --upload-port /dev/ttyUSB4; screen /dev/ttyUSB4 115200
 
+To run without the sensors connected, comment out the line with the tag HARDCODE and comment the sensor reading lines

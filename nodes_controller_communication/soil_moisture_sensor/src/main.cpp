@@ -6,6 +6,19 @@
  *
  * Code is based on the examples from the ArduinoBLE library, github link -> https://github.com/nkolban/ESP32_BLE_Arduino
  */
+/*
+  STATE MACHINE: -FIRST_CONNECTION
+                 -LOW_CONSUMPTION
+                 -ACTUATOR_MODE
+  
+  * FIRST_CONNECTION: State waiting for the first time the sensor conencts to device
+  * LOW_CONSUMTPION: State when actuator is not needed. Send sensor value and sleeps for TIME_TO_SLEEP_LOW_CONSUMPTION .
+  * ACTUATOR_MODE: State when actuator is needed. Send sensor values every interval value.
+  * 
+  * Soil Moisture sensor : ESP32 pin GPIO36 (ADC0) connected to sensor's signal pin
+  *                       
+  * LED_BUILTIN is used to represent the state of the actuator
+*/
 
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -20,7 +33,7 @@
 #define TIME_TO_SLEEP_ACTUATOR_MODE 30 /* Time ESP32 will go to sleep (in seconds)*/
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
-
+#define SIGNAL_PIN 36
 
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
@@ -34,7 +47,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
-RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
+// RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -47,7 +60,8 @@ States currentState;
 bool transition=false; //to know when a transition happens
 bool messageACK=false; //ACK message. So this way, we are sure the value is received
 bool sendMessage=false; //to know when message should be sent
-float readValue;
+float readValue ,_moisture;
+int sensor_analog;
 // Function to transition to a new state
 void changeState(States nextState){
   currentState=nextState;
@@ -193,6 +207,9 @@ void loop() {
     if(currentState==ACTUATOR_MODE){
       sendMessage=true;
     }
+    Serial.print("Moisture = ");
+    Serial.print(_moisture);  /* Print Temperature on the serial window */
+    Serial.println("%");
   }
 
   /*
@@ -251,14 +268,19 @@ void loop() {
 
   if(sendMessage){
     /*Hardcoded changes at the values to make sure State Machine is working correctly*/
-    safeReadValue=safeReadValue+1; /*HARDCODE*/
-    readValue=fmod(safeReadValue,5); /*HARDCODE*/
-
-    String message_to_sent=formatData(readValue);
+    // safeReadValue=safeReadValue+1; /*HARDCODE*/
+    // readValue=fmod(safeReadValue,5); /*HARDCODE*/
+    readValue= analogRead(SIGNAL_PIN); 
+    _moisture = ( 100 - ( (readValue/4095.00) * 100 ) );
+    String message_to_sent=formatData(_moisture);
     if(send_message_to_device(message_to_sent)){
       Serial.println("[Soil Moisture Sensor] Message sent to Main Controller "+ String(readValue));
     }
     else  Serial.println("[Soil Moisture Sensor] Message not sent to Main Controller ");
   }
   // Do other stuff here.
+
+
+
+  delay(10000);              /* Wait for 1000mS */
 }

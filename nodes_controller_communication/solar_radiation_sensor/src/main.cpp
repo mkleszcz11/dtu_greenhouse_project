@@ -6,6 +6,19 @@
  *
  * Code is based on the examples from the ArduinoBLE library, github link -> https://github.com/nkolban/ESP32_BLE_Arduino
  */
+/*
+  STATE MACHINE: -FIRST_CONNECTION
+                 -LOW_CONSUMPTION
+                 -ACTUATOR_MODE
+  
+  * FIRST_CONNECTION: State waiting for the first time the sensor conencts to device
+  * LOW_CONSUMTPION: State when actuator is not needed. Send sensor value and sleeps for TIME_TO_SLEEP_LOW_CONSUMPTION .
+  * ACTUATOR_MODE: State when actuator is needed. Send sensor values every interval value.
+  * 
+  * Water Level sensor : ESP32 pin GPIO17 connected to sensor's VCC pin
+  *                       ESP32 pin GPIO36 (ADC0) connected to sensor's signal pin
+  * LED_BUILTIN is used to represent the state of the actuator
+*/
 
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -20,6 +33,8 @@
 #define TIME_TO_SLEEP_ACTUATOR_MODE 30 /* Time ESP32 will go to sleep (in seconds)*/
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
+#define POWER_PIN  17 // ESP32 pin GPIO17 connected to sensor's VCC pin
+#define SIGNAL_PIN 36 // ESP32 pin GPIO36 (ADC0) connected to sensor's signal pin
 
 
 
@@ -34,7 +49,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
-RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
+// RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -146,6 +161,9 @@ void setup() {
 
     
     Serial.begin(115200);
+    pinMode(POWER_PIN, OUTPUT);   // configure pin as an OUTPUT
+    digitalWrite(POWER_PIN, LOW); // turn the sensor OFF
+
     BLEDevice::init("SensorSolarRadiation");                // Initialize the BLE device.
     pServer = BLEDevice::createServer();              // Create the BLE Server.
     pServer->setCallbacks(new ServerCallbacks());     // Set server callbacks
@@ -190,6 +208,8 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis; 
     print_current_state();
+    Serial.print("The water sensor value: ");
+    Serial.println(readValue);
     if(currentState==ACTUATOR_MODE){
       sendMessage=true;
     }
@@ -251,8 +271,12 @@ void loop() {
 
   if(sendMessage){
     /*Hardcoded changes at the values to make sure State Machine is working correctly*/
-    safeReadValue=safeReadValue+1; /*HARDCODE*/
-    readValue=fmod(safeReadValue,4); /*HARDCODE*/
+    // safeReadValue=safeReadValue+1; /*HARDCODE*/
+    // readValue=fmod(safeReadValue,4); /*HARDCODE*/
+    digitalWrite(POWER_PIN, HIGH);  // turn the sensor ON
+    delay(10);                      // wait 10 milliseconds
+    readValue = analogRead(SIGNAL_PIN); // read the analog value from sensor
+    digitalWrite(POWER_PIN, LOW);   // turn the sensor OFF
 
     String message_to_sent=formatData(readValue);
     if(send_message_to_device(message_to_sent)){
@@ -261,4 +285,6 @@ void loop() {
     else  Serial.println("[Solar Radiation Sensor] Message not sent to Main Controller ");
   }
   // Do other stuff here.
+
+  
 }

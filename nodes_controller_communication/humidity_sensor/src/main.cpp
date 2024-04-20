@@ -14,6 +14,9 @@
   * FIRST_CONNECTION: State waiting for the first time the sensor conencts to device
   * LOW_CONSUMTPION: State when actuator is not needed. Send sensor value and sleeps for TIME_TO_SLEEP_LOW_CONSUMPTION .
   * ACTUATOR_MODE: State when actuator is needed. Send sensor values every interval value.
+  * 
+  * DHT sensor is connected to digital pin D23
+  * LED_BUILTIN is used to represent the state of the actuator
 */
 
 
@@ -22,6 +25,10 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <math.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+
+
 
 #define SERVICE_UUID "A077916E-2CBE-45E3-BB35-4514C322606F"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -30,7 +37,7 @@
 #define TIME_TO_SLEEP_ACTUATOR_MODE 30 /* Time ESP32 will go to sleep (in seconds)*/
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
-
+#define DHTPIN 23 // Digital pin connected to the DHT sensor
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
 BLEService *pService = nullptr; // Pointer to BLE Service
@@ -43,7 +50,7 @@ const long interval = 30000;       // Interval at which to send message (millise
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
-RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
+// RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
 
 /*State Machine*/
 enum States {
@@ -57,6 +64,7 @@ bool transition=false; //to know when a transition happens
 bool messageACK=false; //ACK message. So this way, we are sure the value is received
 bool sendMessage=false; //to know when message should be sent
 
+DHT dht(DHTPIN, DHT11); // Initialize DHT sensor
 float readTemp;
 float readHum;
 // Function to transition to a new state
@@ -158,6 +166,7 @@ void setup() {
 
     
     Serial.begin(115200);
+    dht.begin(); // Initialize DHT sensor
     BLEDevice::init("SensorHumidity");                // Initialize the BLE device.
     pServer = BLEDevice::createServer();              // Create the BLE Server.
     pServer->setCallbacks(new ServerCallbacks());     // Set server callbacks
@@ -206,6 +215,12 @@ void loop() {
     if(currentState==ACTUATOR_MODE){
       sendMessage=true;
     }
+    Serial.print("Humidity: ");
+    Serial.print(readHum);
+    Serial.println("");
+    Serial.print("Temperature: ");
+    Serial.print(readTemp);
+    Serial.println("");
   }
 
   /*
@@ -262,12 +277,16 @@ void loop() {
   }
 
   if(sendMessage){
+  
       /*Hardcoded changes at the values to make sure State Machine is working correctly*/
-    safeReadValue=safeReadValue+1; /*HARDCODE*/
+    //  safeReadValue=safeReadValue+1; /*HARDCODE*/
     
-    readTemp=fmod(safeReadValue,4); /*HARDCODE*/
-    readHum=fmod(safeReadValue,5); /*HARDCODE*/
-    
+    // readTemp=fmod(safeReadValue,4); /*HARDCODE*/
+    // readHum=fmod(safeReadValue,5); /*HARDCODE*/ 
+
+    readHum = dht.readHumidity();
+    readTemp = dht.readTemperature();
+
     String message_to_sent=formatData(readTemp,readHum);
     if(send_message_to_device(message_to_sent)){
       Serial.println("[Humidity Sensor] Message sent to Main Controller " + String(readTemp)+ " "+ String(readHum));
@@ -275,4 +294,11 @@ void loop() {
     else  Serial.println("[Humidity Sensor] Message not sent to Main Controller");
   }
   // Do other stuff here.
+
+  readHum = dht.readHumidity();
+  readTemp = dht.readTemperature();
+
+  delay(5000);
+  
+
 }

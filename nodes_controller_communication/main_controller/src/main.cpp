@@ -414,6 +414,7 @@ void loop() {
   if (connectedDevices == NUMBER_OF_DEVICES && print_all_devices_flag && startSystem) {
     print_all_connections();
     print_all_devices_flag = false;
+    delay(10000);
     for (int i = 0; i < NUMBER_OF_DEVICES; i++) {
       if (devices[i].currentState==FIRST_CONNECTION)
       {
