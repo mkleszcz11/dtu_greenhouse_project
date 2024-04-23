@@ -148,7 +148,7 @@ void lora_transmit(uint8_t *sending_info, int n, bool *transmit_flag, bool *rece
             idx += sprintf(output + idx, "%02X", sending_info[i]);
         }
         output[idx] = '\0';  // Ensure null termination
-        Serial.println("[LoRa - transmit] Transmitting: " + String(output));
+        // Serial.println("[LoRa - transmit] Transmitting: " + String(output));
 
         loraSerial.println("radio rxstop");
         // Wait to respond with ok, max 1 second.
@@ -166,7 +166,7 @@ void lora_transmit(uint8_t *sending_info, int n, bool *transmit_flag, bool *rece
         loraSerial.println("mac pause");
         delay(100);
         while (loraSerial.available()) {
-            String response_1 = loraSerial.readStringUntil('\n'); // Disregard any messages
+            String response = loraSerial.readStringUntil('\n'); // Disregard any messages
             // Serial.println("[LoRa - transmit] mac pause response -> " + response_1);
         }
 
@@ -213,13 +213,14 @@ void lora_process_receive_message(String response, uint8_t *receiving_info, int 
 {
     if (response.startsWith("radio_rx")) {
         response.remove(0, 10);  // Adjust index based on actual prefix length "radio_rx "
-        receiving_info[0] = strtol(response.substring(0, 2).c_str(), NULL, 16);
-        receiving_info[1] = strtol(response.substring(2, 4).c_str(), NULL, 16);
-        receiving_info[2] = strtol(response.substring(4, 6).c_str(), NULL, 16);
-
+        Serial.print("[LoRa - receive] Data received successfully, data: ");
+        for (int i = 0; i < n; i++) {
+            receiving_info[i] = strtol(response.substring(2*i, 2*i+2).c_str(), NULL, 16);
+            Serial.print(String(receiving_info[i]));
+        }
+        Serial.println();
         *receive_complete_flag = true;
-        *receive_flag = false;  // Data reception is complete, modukle is ready for new operation.
-        Serial.println("[LoRa - receive] Data received successfully, data: " + String(receiving_info[0]) + " " + String(receiving_info[1]) + " " + String(receiving_info[2]));
+        *receive_flag = false;  // Data reception is complete, module is ready for new operation.
         //break; // Exit after processing the message
     } else if (response.startsWith("radio_err")) {
         *receive_flag = false;                                             // Data reception was unsuccesful, module is ready for new operation.
@@ -236,7 +237,7 @@ void check_for_incoming_message(uint8_t *receiving_info, int n, bool *receive_fl
         String response = loraSerial.readStringUntil('\n');
         // Serial.println("[LoRa - check_for_incoming_message] mac pause response -> " + response);
         if (response.startsWith("radio_rx")) {
-            Serial.println("[LoRa - check_for_incoming_message] New incomming message available");
+            // Serial.println("[LoRa - check_for_incoming_message] New incomming message available");
             lora_process_receive_message(response, receiving_info, n, receive_flag, receive_complete_flag);
         }
     }
