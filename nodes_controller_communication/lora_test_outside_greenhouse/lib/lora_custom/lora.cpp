@@ -213,9 +213,9 @@ void lora_process_receive_message(String response, uint8_t *receiving_info, int 
 {
     if (response.startsWith("radio_rx")) {
         response.remove(0, 10);  // Adjust index based on actual prefix length "radio_rx "
-        receiving_info[0] = strtol(response.substring(0, 2).c_str(), NULL, 16);
-        receiving_info[1] = strtol(response.substring(2, 4).c_str(), NULL, 16);
-        receiving_info[2] = strtol(response.substring(4, 6).c_str(), NULL, 16);
+        for (int i = 0; i < n; i++) {
+            receiving_info[i] = strtol(response.substring(2*i, 2*i+2).c_str(), NULL, 16);
+        }
 
         *receive_complete_flag = true;
         *receive_flag = false;  // Data reception is complete, modukle is ready for new operation.

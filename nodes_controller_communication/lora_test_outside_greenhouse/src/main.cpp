@@ -1,10 +1,10 @@
 #include "lora.h"
 
-// 1. temperature 2. air humidity 3. soil moisture
-uint8_t lora_sensor_info[3];  // 1. device_id, 2. value1, 3. value2 (value2 only got humidity)
-uint8_t lora_control_info[3]; // 1. parameter_id, 2. lower bound, 3. upper bound
+#define NUMBER_OF_CONTROLLED_PARAMETERS 4 // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
 
-static uint8_t last_recoreded_values[4]; // {soil moisture, temperature, humidity, solar radiation}
+// 1. temperature 2. air humidity 3. soil moisture
+uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS]; // {soil moisture, temperature, humidity, solar radiation}
+uint8_t control_info[3]; // {value_type, desired_value_lower_bound, desired_value_upper_bound}
 
 /* Flag to indicate if a new LoRa message was received */
 bool new_message_flag = false;
@@ -25,12 +25,12 @@ enum devices {
 	UNKNOWN_IDX
 };
 
-uint8_t control_info[4][2] = {
-  {20, 22}, // Desired temperature bounds
-  {40, 60}, // Desired humidity bounds
-  {30, 50}, // Desired soil moisture bounds
-  {60, 70}  // Desired solar radiation bounds (#TODO is this correct?)
-};
+// uint8_t control_info[4][2] = {
+//   {20, 22}, // Desired temperature bounds
+//   {40, 60}, // Desired humidity bounds
+//   {30, 50}, // Desired soil moisture bounds
+//   {60, 70}  // Desired solar radiation bounds (#TODO is this correct?)
+// };
 
 devices map_device_idx_to_device_name(uint8_t device_idx) {
   switch (device_idx) {
@@ -75,35 +75,14 @@ String map_control_enum_to_string(parameters control) {
   }
 }
 
-void print_explicit_info(uint8_t* lora_sensor_info) {
-  Serial.print("[communication node] Updated ");
-  devices device = map_device_idx_to_device_name(lora_sensor_info[0]);
-  switch (device) {
-    case SOIL_MOISTURE_IDX:
-      Serial.print("Soil moisture: ");
-      Serial.println(lora_sensor_info[1]);
-      break;
-    case SOLAR_RADIATION_IDX:
-      Serial.print("Solar radiation: ");
-      Serial.println(lora_sensor_info[1]);
-      break;
-    case TEMPERATURE_AND_HUMIDITY_IDX:
-      Serial.print("Temperature: ");
-      Serial.print(lora_sensor_info[1]);
-      Serial.print(" Humidity: ");
-      Serial.println(lora_sensor_info[2]);
-      break;
-    default:
-      Serial.println("Unknown device");
-      break;
-  }
-
-//   Serial.print("lora_sensor_info[0]: ");
-//   Serial.println(lora_sensor_info[0]);
-//   Serial.print("lora_sensor_info[1]: ");
-//   Serial.println(lora_sensor_info[1]);
-//   Serial.print("lora_sensor_info[2]: ");
-//   Serial.println(lora_sensor_info[2]);
+void print_explicit_info(uint8_t* sensor_info) {
+  Serial.print("[Recieved sensor info");
+  Serial.print("Temperature: ");
+  Serial.print(sensor_info[VAL_TEMPERATURE]);
+  Serial.print(" Humidity: ");
+  Serial.println(sensor_info[VAL_HUMIDITY]);
+  Serial.print("Solar radiation: ");
+  Serial.println(sensor_info[VAL_SOLAR_RADIATION]);
 }
 
 void setup() {
@@ -130,34 +109,18 @@ void loop() {
     // Handle receiving
     if (!lora_transmit_mode_flag && !lora_receive_mode_flag) {
         lora_receive_mode_flag = true;
-        lora_receive(lora_sensor_info, 3, &lora_receive_mode_flag, &lora_receive_message_flag); // Put lora modukle in receive mode
+        lora_receive(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Put lora module in receive mode
     }
 
     // Check for new messages every 1 seconds
     if (lora_receive_mode_flag && current_millis - last_receive_time >= interval_incoming_message_check) {
-		check_for_incoming_message(lora_sensor_info, 3, &lora_receive_mode_flag, &lora_receive_message_flag); // Check if there is a message that waits to be processed.
+		  check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Check if there is a message that waits to be processed.
     	last_receive_time = current_millis;	
     }
 
     // Print sensor info if received
     if (lora_receive_message_flag) {
-        print_explicit_info(lora_sensor_info);
-
-		switch (lora_sensor_info[0]) {
-			case SOIL_MOISTURE_IDX:
-				last_recoreded_values[VAL_SOIL_MOISTURE] = lora_sensor_info[1];
-				break;
-			case SOLAR_RADIATION_IDX:
-				last_recoreded_values[VAL_SOLAR_RADIATION] = lora_sensor_info[1];
-				break;
-			case TEMPERATURE_AND_HUMIDITY_IDX:
-				last_recoreded_values[VAL_TEMPERATURE] = lora_sensor_info[1];
-				last_recoreded_values[VAL_HUMIDITY] = lora_sensor_info[2];
-				break;
-			default:
-				break;
-		}
-
+        print_explicit_info(sensor_info);
         lora_receive_message_flag = false; // Reset flag after processing
     }
 
@@ -166,21 +129,21 @@ void loop() {
     /**************************************************************************/
 
 	// TODO change that -> for now we are generating some random parameters to send
-    lora_control_info[0] = VAL_SOLAR_RADIATION; 			  // Parameter ID, check "parameters" enum for details (e.g. VAL_TEMPERATURE)
-    lora_control_info[1] = random(0, 100);					  // Lower bound
-    lora_control_info[2] = random(lora_control_info[1], 100); // Upper bound
+    control_info[0] = VAL_SOLAR_RADIATION; 			  // Parameter ID, check "parameters" enum for details (e.g. VAL_TEMPERATURE)
+    control_info[1] = random(0, 100);					  // Lower bound
+    control_info[2] = random(control_info[1], 100); // Upper bound
 
     // Handle transmission every X seconds or as required
     // TODO change that -> we should send the message if some value should be changed
     // or we can send the message every X seconds to update the desired value for specified parameter
     if (current_millis - last_sent_time >= 10000) {
-		Serial.print("[communication node] Transmitting new paraneters for " + map_control_enum_to_string(map_control_id_to_control_val(lora_control_info[0])));
-		Serial.println(" (" + String(lora_control_info[1]) + " - " + String(lora_control_info[2]) + ")");
-		last_sent_time = current_millis;
-		lora_receive_mode_flag = false; // Put the lora module to receive mode again after sending the message.
-		check_for_incoming_message(lora_sensor_info, 3, &lora_receive_mode_flag, &lora_receive_message_flag); // Firstly, check if there is a message that waits to be processed.
-        lora_transmit_mode_flag = true;
-        lora_transmit(lora_control_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag); // Pass the receive message flag as we could enter this function with message waiting to be processed.
+      Serial.print("[communication node] Transmitting new parameters for " + map_control_enum_to_string(map_control_id_to_control_val(control_info[0])));
+      Serial.println(" (" + String(control_info[1]) + " - " + String(control_info[2]) + ")");
+      last_sent_time = current_millis;
+      lora_receive_mode_flag = false; // Put the lora module to receive mode again after sending the message.
+      check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Firstly, check if there is a message that waits to be processed.
+      lora_transmit_mode_flag = true;
+      lora_transmit(control_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag); // Pass the receive message flag as we could enter this function with message waiting to be processed.
     }
 
 
@@ -209,7 +172,7 @@ void loop() {
 			Serial.print("Sensor: ");
 			Serial.print(map_control_enum_to_string(map_control_id_to_control_val(i)));
 			Serial.print(": ");
-			Serial.println(last_recoreded_values[i]);
+			Serial.println(sensor_info[i]);
 		}
 		Serial.println("-----------");
 		Serial.println("#############################");

@@ -54,10 +54,9 @@ unsigned long previous_millis = 0;
 /* Flag to indicate if a new BLE message was received */
 bool new_ble_message_flag = false;
 
-uint8_t lora_sensor_info[3]; // 1. sensor_id 2. sensor_1_value 3. sensor_2_value
-uint8_t control_info[3]; // 1. value_type, 2. desired_value_lower_bound, 3. desired_value_upper_bound
+uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS]; // {soil moisture, temperature, humidity, solar radiation}
+uint8_t control_info[3]; // {value_type, desired_value_lower_bound, desired_value_upper_bound}
 
-uint8_t last_recoreded_values[4]; // {soil moisture, temperature, humidity, solar radiation}
 
 bool startSystem;
 /* Structure to manage connections */
@@ -233,7 +232,8 @@ static void notifyCallback(
 
 	/*LATER: IMPLEMENT READ THE STRING TO FLOAT*/
 
-	float readValue1, readValue2=0.0; //readValue2 is used only for HUMIDITY_TEMPERATURE_SENSOR
+	float readValue1 = 0.0;
+	float readValue2 = 0.0; //readValue2 is used only for HUMIDITY_TEMPERATURE_SENSOR
 
 	readValue1=atof(buffer);
 	char* separator = strchr(buffer, ';'); // Find the position of the semicolon
@@ -286,10 +286,21 @@ static void notifyCallback(
 	devices[deviceIndexNotification].messageACK=true; //MainController will acknowledge the message
 	devices[deviceIndexNotification].print_current_state();
 
-	// Indicate from which device we received the message - used to send info via LoRa
-	lora_sensor_info[0] = deviceIndexNotification;
-	lora_sensor_info[1] = readValue1;
-	lora_sensor_info[2] = readValue2;
+	// Store the value
+	switch (deviceIndexNotification) {
+		case SOIL_MOISTURE_SENSOR:
+			sensor_info[VAL_SOIL_MOISTURE] = readValue1;
+			break;
+		case HUMIDITY_TEMPERATURE_SENSOR:
+			sensor_info[VAL_TEMPERATURE] = readValue1;
+			sensor_info[VAL_HUMIDITY] = readValue2;
+			break;
+		case SOLAR_RADIATION_SENSOR:
+			sensor_info[VAL_SOLAR_RADIATION] = readValue1;
+			break;
+		default:
+			break;
+	}
 
 	new_ble_message_flag = true;
 }
@@ -527,28 +538,14 @@ void loop() {
 	// /*** LORA - SENDING SENSOR VALUES TO THE REMOTE NODE ***/
 	// /*******************************************************/
 
-    // Transmit data if we have a new BLE info, update last_recorded_values array
-    if (new_ble_message_flag) { //current_millis - last_sent_time >= 10000 && !lora_receive_mode_flag) {
-        // last_sent_time = current_millis;
+	// Transmit sensor info every 10 seconds
+    if (current_millis - last_sent_time >= 10000) { //current_millis - last_sent_time >= 10000 && !lora_receive_mode_flag) {
 		lora_receive_mode_flag = false; // Put the lora module to receive mode again after sending the message.
 		check_for_incoming_message(control_info, 3, &lora_receive_mode_flag, &lora_receive_message_flag); // Firstly, check if there is a message that waits to be processed.
         lora_transmit_mode_flag = true;
-        lora_transmit(lora_sensor_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag);
+        lora_transmit(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag);
 		
-		switch (lora_sensor_info[0]) {
-			case SOIL_MOISTURE_SENSOR:
-				last_recoreded_values[VAL_SOIL_MOISTURE] = lora_sensor_info[1];
-				break;
-			case SOLAR_RADIATION_SENSOR:
-				last_recoreded_values[VAL_SOLAR_RADIATION] = lora_sensor_info[1];
-				break;
-			case HUMIDITY_TEMPERATURE_SENSOR:
-				last_recoreded_values[VAL_TEMPERATURE] = lora_sensor_info[1];
-				last_recoreded_values[VAL_HUMIDITY] = lora_sensor_info[2];
-				break;
-			default:
-				break;
-		}
+		last_sent_time = current_millis;
 		new_ble_message_flag = false;
     }
 
@@ -629,7 +626,7 @@ void loop() {
 			Serial.print("Sensor: ");
 			Serial.print(map_value_index_to_value_name(i));
 			Serial.print(": ");
-			Serial.println(last_recoreded_values[i]);
+			Serial.println(sensor_info[i]);
 		}
 		Serial.println("-----------");
 		Serial.println("#############################");
