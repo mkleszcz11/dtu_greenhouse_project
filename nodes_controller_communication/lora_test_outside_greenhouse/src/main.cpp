@@ -2,7 +2,6 @@
 
 #define NUMBER_OF_CONTROLLED_PARAMETERS 4 // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
 
-// 1. temperature 2. air humidity 3. soil moisture
 uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS]; // {soil moisture, temperature, humidity, solar radiation}
 uint8_t control_info[3]; // {value_type, desired_value_lower_bound, desired_value_upper_bound}
 
@@ -60,29 +59,28 @@ parameters map_control_id_to_control_val(uint8_t control_id) {
   }
 }
 
-String map_control_enum_to_string(parameters control) {
-  switch (control) {
-	case VAL_TEMPERATURE:
-	  return "Temperature";
-	case VAL_HUMIDITY:
-	  return "Humidity";
-	case VAL_SOIL_MOISTURE:
-	  return "Soil moisture";
-	case VAL_SOLAR_RADIATION:
-	  return "Solar radiation";
-	default:
-	  return "Unknown";
+String map_control_enum_to_string(int deviceIndex) {
+  switch (deviceIndex) {
+    case VAL_TEMPERATURE:
+      return "Temperature";
+    case VAL_HUMIDITY:
+      return "Humidity";
+    case VAL_SOIL_MOISTURE:
+      return "Soil moisture";
+    case VAL_SOLAR_RADIATION:
+      return "Solar radiation";
+    default:
+      return "Unknown";
   }
 }
 
 void print_explicit_info(uint8_t* sensor_info) {
-  Serial.print("[Recieved sensor info");
-  Serial.print("Temperature: ");
-  Serial.print(sensor_info[VAL_TEMPERATURE]);
-  Serial.print(" Humidity: ");
-  Serial.println(sensor_info[VAL_HUMIDITY]);
-  Serial.print("Solar radiation: ");
-  Serial.println(sensor_info[VAL_SOLAR_RADIATION]);
+  Serial.print("[Recieved sensor info:");
+  for(int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++){
+    Serial.print(" " + map_control_enum_to_string(i) + " ");
+    Serial.print(sensor_info[i]);
+  }
+  Serial.println("]");
 }
 
 void setup() {
