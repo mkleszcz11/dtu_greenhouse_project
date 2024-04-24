@@ -61,4 +61,4 @@
 #endif // IOT_CONFIG_USE_X509_CERT
 
 // Publish 1 message every 2 seconds
-#define TELEMETRY_FREQUENCY_MILLISECS 4000
+#define TELEMETRY_FREQUENCY_MILLISECS 6000

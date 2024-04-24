@@ -46,6 +46,14 @@
 // Library for sending JSON
 #include <ArduinoJson.h>
 
+// Lora communication
+#include "lora.h"
+
+// JsonDocument sensor_info;
+// JsonDocument control_info;
+uint16_t sensor_info[2];
+uint16_t control_info[] = { 4, 5, 6 };
+
 // When developing for your own Arduino-based platform,
 // please follow the format '(ard;<platform>)'.
 #define AZURE_SDK_CLIENT_USER_AGENT "c%2F" AZ_SDK_VERSION_STRING "(ard;esp32)"
@@ -84,9 +92,12 @@ static unsigned long next_telemetry_send_time_ms = 0;
 static char telemetry_topic[128];
 static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
+bool freshData = false;
 
 #define INCOMING_DATA_BUFFER_SIZE 128
+#define OUTPUT_DATA_BUFFER_SIZE 128
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
+uint16_t outputArray[OUTPUT_DATA_BUFFER_SIZE];
 
 // Auxiliary functions
 #ifndef IOT_CONFIG_USE_X509_CERT
@@ -137,8 +148,11 @@ void receivedCallback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println("");
 }
-
+size_t outputSize = 0;
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
+  char* ptr = incoming_data;
+
+
   switch (event->event_id) {
     int i, r;
 
@@ -183,6 +197,20 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
       incoming_data[i] = '\0';
       Logger.Info("Data: " + String(incoming_data));
 
+      outputSize = 0;
+      while (sscanf(ptr, "%hu,", &outputArray[outputSize]) == 1 && outputSize < sizeof(outputArray) / sizeof(outputArray[0])) {
+        outputSize++;
+        ptr = strchr(ptr, ',');
+        if (ptr) ptr++;
+        else break;
+      }
+
+      printf("Extracted numbers: ");
+      for (size_t i = 0; i < outputSize; i++) {
+        printf("%d ", outputArray[i]);
+      }
+      printf("\n");
+      freshData = true;
       break;
     case MQTT_EVENT_BEFORE_CONNECT:
       Logger.Info("MQTT event MQTT_EVENT_BEFORE_CONNECT");
@@ -191,7 +219,6 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
       Logger.Error("MQTT event UNKNOWN");
       break;
   }
-
   return ESP_OK;
 }
 
@@ -287,24 +314,28 @@ static void establishConnection() {
 }
 
 static void generateTelemetryPayload() {
-  StaticJsonDocument<200> doc;  // adjust size as needed
+  Logger.Info("Generating data for cloud upload");
+  JsonDocument doc;  // adjust size as needed
   doc.clear();
 
   // Create a nested JSON object with a custom name instead of "body"
-  JsonObject customNameObject = doc.createNestedObject("customName");  // Change "customName" to your desired name
+  //JsonObject customNameObject = doc.createNestedObject("customName");  // Change "customName" to your desired name
 
   // Add data to the nested JSON object
-  customNameObject["msgCount"] = telemetry_send_count++;
-  customNameObject["msgCountTest"] = 251;
+  doc["msgCount"] = telemetry_send_count++;
+  doc["data_1"] = control_info[0];
 
-  // Create a nested JSON object
-  JsonObject subtopicObject = customNameObject.createNestedObject("subtopic");
-  subtopicObject["testdata"] = 123;
+  // // Create a nested JSON object
+  // JsonObject subtopicObject = customNameObject.createNestedObject("subtopic");
+  // subtopicObject["testdata"] = 123;
 
 
   String jsonPayload;
   serializeJson(doc, jsonPayload);
   const char* payload = jsonPayload.c_str();
+  // String jsonPayload;
+  // serializeJson(sensor_info, jsonPayload);
+  // const char* payload = jsonPayload.c_str();
   telemetry_payload = payload;
   // You can generate the JSON using any lib you want. Here we're showing how to do it manually, for simplicity.
   // This sample shows how to generate the payload using a syntax closer to regular delevelopment for Arduino, with
@@ -345,14 +376,32 @@ static void sendTelemetry() {
 
 void setup() {
   establishConnection();
+  lora_setup();
 }
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     connectToWiFi();
   }
+  
+  lora_receive(sensor_info, 2);
+  Serial.println("sensor_info is: ");
+  for (int i = 0; i <= 2; i++) {
+    Serial.println(sensor_info[i]);
+  }
+  if (freshData) {
+    Serial.println("New data");
+    lora_transmit(outputArray, outputSize - 1);
+    Serial.println("OutputArray is: ");
+    for (int i = 0; i < outputSize; i++) {
+      Serial.println(outputArray[i]);
+    }
+    freshData = false;
+  }
+  Serial.println("No more fresh data");
+
 #ifndef IOT_CONFIG_USE_X509_CERT
-  else if (sasToken.IsExpired()) {
+  if (sasToken.IsExpired()) {
     Logger.Info("SAS token expired; reconnecting with a new one.");
     (void)esp_mqtt_client_destroy(mqtt_client);
     initializeMqttClient();
