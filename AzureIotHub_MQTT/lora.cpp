@@ -1,6 +1,5 @@
 #include "lora.h"
 #include <HardwareSerial.h>
-#include <string>
 
 #define RXD2            16
 #define TXD2            17
@@ -9,15 +8,6 @@
 
 HardwareSerial loraSerial(2);
 String str;
-
-enum LoRaReceiveState {
-  IDLE,
-  WAITING_FOR_MESSAGE,
-  PROCESSING_MESSAGE
-};
-
-LoRaReceiveState receiveState = IDLE;
-String readBuffer = "";
 
 void lora_autobaud() {
   String response = "";
@@ -120,7 +110,7 @@ void lora_setup(){
   str = loraSerial.readStringUntil('\n');
   Serial.println(str);
 
-  loraSerial.println("radio set wdt 0"); //disable for continuous reception
+  loraSerial.println("radio set wdt 60000"); //disable for continuous reception
   str = loraSerial.readStringUntil('\n');
   Serial.println(str);
 
@@ -133,122 +123,51 @@ void lora_setup(){
   Serial.println(str);
 }
 
-void lora_transmit(uint8_t *sending_info, int n, bool *transmit_flag, bool *receive_flag, bool *message_received_flag) {
-    unsigned long delayTime = 1000;  // Initial delay time in ms
-    const unsigned long maxDelayTime = 16000;  // Maximum delay time in ms
-    unsigned long current_time = millis();
-    bool busy_flag = true;
-    String response;
+void lora_transmit(uint16_t * sending_info, int n) { // This function sends messages via Lora
+  // Convert the list to hex numbers
+  char output[n*4+4]; int i;
+  for(i = 0; i <= n; i++){
+    sprintf(output+i*4, "%04X", sending_info[i]);
+  }
 
-    if (*transmit_flag) {
-        char output[n * 2 + 1];
-        int idx = 0;
-        for (int i = 0; i < n; i++) {
-            idx += sprintf(output + idx, "%02X", sending_info[i]);
-        }
-        output[idx] = '\0';  // Ensure null termination
-        // Serial.println("[LoRa - transmit] Transmitting: " + String(output));
-
-        loraSerial.println("radio rxstop");
-        // Wait to respond with ok, max 1 second.
-        unsigned long start = millis();
-        while (millis() - start < 1000) {
-            if (loraSerial.available()) {
-                String response_rx = loraSerial.readStringUntil('\n');
-                //Serial.println("[LoRa - transmit] rxstop response -> " + response_rx);
-                if (response_rx.startsWith("ok")) {
-                    break;
-                }
-            }
-        }
-
-        loraSerial.println("mac pause");
-        delay(100);
-        while (loraSerial.available()) {
-            String response = loraSerial.readStringUntil('\n'); // Disregard any messages
-            // Serial.println("[LoRa - transmit] mac pause response -> " + response_1);
-        }
-
-        while (busy_flag && delayTime <= maxDelayTime) {
-            loraSerial.println("radio tx " + String(output));
-            response = loraSerial.readStringUntil('\n');
-            // Serial.println("[LoRa - transmit] response -> " + response);
-
-            if (response.indexOf("busy") == -1) {
-                // *transmit_flag = (response == "ok");
-                busy_flag = false;
-            } else {
-                delay(delayTime);
-                delayTime *= 2;  // Exponential back-off
-                Serial.println("[LoRa - transmit] LoRa module is busy, retrying...");
-            }
-        }
-        if (delayTime > maxDelayTime) {
-            Serial.println("[LoRa - transmit] Failed to transmit: LoRa module too busy");
-            *transmit_flag = false;
-        }
-
-        // wait 5 seconds for the radio_tx_ok response
-        unsigned long start_wait_for_confirmation = millis();
-        current_time = start_wait_for_confirmation;
-        while (current_time - start_wait_for_confirmation < 5000) {
-            if (loraSerial.available()) {
-                String response = loraSerial.readStringUntil('\n');
-                // Serial.println("[LoRa - transmit] Response: " + response);
-                if (response.startsWith("radio_tx_ok")) {
-                    Serial.println("[LoRa - transmit] Transmission successful");
-                    *transmit_flag = false;
-                    return;
-                }
-            }
-            current_time = millis();
-        }
-        Serial.println("[LoRa - transmit] Transmission unsuccessful - no confirmation received.");
-        *transmit_flag = false;
-    }
+  loraSerial.println("radio tx " + String(output));
+  str = loraSerial.readStringUntil('\n');
+  str = loraSerial.readStringUntil('\n');
 }
 
-void lora_process_receive_message(String response, uint8_t *receiving_info, int n, bool *receive_flag, bool *receive_complete_flag)
-{
-    if (response.startsWith("radio_rx")) {
-        response.remove(0, 10);  // Adjust index based on actual prefix length "radio_rx "
-        Serial.print("[LoRa - receive] Data received successfully, data: ");
-        for (int i = 0; i < n; i++) {
-            receiving_info[i] = strtol(response.substring(2*i, 2*i+2).c_str(), NULL, 16);
-            Serial.print(String(receiving_info[i]));
-        }
-        Serial.println();
-        *receive_complete_flag = true;
-        *receive_flag = false;  // Data reception is complete, module is ready for new operation.
-        //break; // Exit after processing the message
-    } else if (response.startsWith("radio_err")) {
-        *receive_flag = false;                                             // Data reception was unsuccesful, module is ready for new operation.
-    } else if (response.startsWith("busy")) {
-        Serial.println("[LoRa - receive] Module is busy, retrying...");
-    }
-    else{
-        Serial.println("[LoRa - receive] No valid data received or unexpected response");
-    }
-}
+// Maybe this need to be a double pointer
+void lora_receive(uint16_t * receiving_info, int n) { // This function reads messages via Lora
+  Serial.println("waiting for a message");
+  loraSerial.println("radio rx 0"); //wait for 60 seconds to receive
+  str = loraSerial.readStringUntil('\n');
+  Serial.println(str);
+  delay(20);
 
-void check_for_incoming_message(uint8_t *receiving_info, int n, bool *receive_flag, bool *receive_complete_flag) {
-    while (loraSerial.available()) {
-        String response = loraSerial.readStringUntil('\n');
-        // Serial.println("[LoRa - check_for_incoming_message] mac pause response -> " + response);
-        if (response.startsWith("radio_rx")) {
-            // Serial.println("[LoRa - check_for_incoming_message] New incomming message available");
-            lora_process_receive_message(response, receiving_info, n, receive_flag, receive_complete_flag);
-        }
-    }
-}
+  if ( str.indexOf("ok") == 0 ) {
+    str = String("");
 
-void lora_receive(uint8_t *receiving_info, int n, bool *receive_flag, bool *receive_complete_flag) {
-    if (*receive_flag) {
-        loraSerial.println("mac pause");
-        delay(100);
-        check_for_incoming_message(receiving_info, n, receive_flag, receive_complete_flag);
-
-        // Serial.println("[LoRa - receive] Entering continous receprion mode");
-        loraSerial.println("radio rx 0"); // Put the radio into continous receive mode again.
+    while(str=="") {
+      str = loraSerial.readStringUntil('\n');
     }
+
+    if ( str.indexOf("radio_rx") == 0 ) { //checking if data was reeived (equals radio_rx = <data>). indexOf returns position of "radio_rx"
+      // remove "radio rx 0  "
+      str.remove(0, 10);
+
+      // convert hex to uint8_t list
+      // Throw String to char[] to avoid error in following loop - FIXME
+      int len = str.length(); char val[4];
+      char str_copy[len]; int i;
+      str.toCharArray(str_copy, len);
+
+      for(i = 0; i <= n; i++){
+        sscanf(str_copy+4*i, "%04X",val);
+        receiving_info[i] = uint16_t(val[0]);
+      }
+    } else {
+      Serial.println("Received nothing");
+    }
+  } else {
+    Serial.println("radio not going into receive mode");
+  }
 }

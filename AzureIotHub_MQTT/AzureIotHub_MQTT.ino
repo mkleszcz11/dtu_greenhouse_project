@@ -1,3 +1,29 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// SPDX-License-Identifier: MIT
+
+/*
+ * This is an Arduino-based Azure IoT Hub sample for ESPRESSIF ESP32 boards.
+ * It uses our Azure Embedded SDK for C to help interact with Azure IoT.
+ * For reference, please visit https://github.com/azure/azure-sdk-for-c.
+ *
+ * To connect and work with Azure IoT Hub you need an MQTT client, connecting, subscribing
+ * and publishing to specific topics to use the messaging features of the hub.
+ * Our azure-sdk-for-c is an MQTT client support library, helping composing and parsing the
+ * MQTT topic names and messages exchanged with the Azure IoT Hub.
+ *
+ * This sample performs the following tasks:
+ * - Synchronize the device clock with a NTP server;
+ * - Initialize our "az_iot_hub_client" (struct for data, part of our azure-sdk-for-c);
+ * - Initialize the MQTT client (here we use ESPRESSIF's esp_mqtt_client, which also handle the tcp
+ * connection and TLS);
+ * - Connect the MQTT client (using server-certificate validation, SAS-tokens for client
+ * authentication);
+ * - Periodically send telemetry data to the Azure IoT Hub.
+ *
+ * To properly connect to your Azure IoT Hub, please fill the information in the `iot_configs.h`
+ * file.
+ */
+
 // C99 libraries
 #include <cstdlib>
 #include <string.h>
@@ -23,89 +49,13 @@
 // Lora communication
 #include "lora.h"
 
-#define NUMBER_OF_CONTROLLED_PARAMETERS 4  // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
+// JsonDocument sensor_info;
+// JsonDocument control_info;
+uint16_t sensor_info[2];
+uint16_t control_info[] = { 4, 5, 6 };
 
-uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS];  // {soil moisture, temperature, humidity, solar radiation}
-uint8_t control_info[3];                               // {value_type, desired_value_lower_bound, desired_value_upper_bound}
-
-/* Flag to indicate if a new LoRa message was received */
-bool new_message_flag = false;
-
-// Enumeration for control parameters, it MUST be aligned to enum in the main controller
-enum parameters {
-  VAL_SOIL_MOISTURE = 0,
-  VAL_TEMPERATURE = 1,
-  VAL_HUMIDITY = 2,
-  VAL_SOLAR_RADIATION = 3,
-  VAL_UNKNOWN = 4
-};
-
-enum devices {
-  SOIL_MOISTURE_IDX = 0,
-  SOLAR_RADIATION_IDX = 1,
-  TEMPERATURE_AND_HUMIDITY_IDX = 2,
-  UNKNOWN_IDX
-};
-
-// uint8_t control_info[4][2] = {
-//   {20, 22}, // Desired temperature bounds
-//   {40, 60}, // Desired humidity bounds
-//   {30, 50}, // Desired soil moisture bounds
-//   {60, 70}  // Desired solar radiation bounds (#TODO is this correct?)
-// };
-
-devices map_device_idx_to_device_name(uint8_t device_idx) {
-  switch (device_idx) {
-    case 0:
-      return SOIL_MOISTURE_IDX;
-    case 1:
-      return SOLAR_RADIATION_IDX;
-    case 2:
-      return TEMPERATURE_AND_HUMIDITY_IDX;
-    default:
-      return UNKNOWN_IDX;
-  }
-}
-
-parameters map_control_id_to_control_val(uint8_t control_id) {
-  switch (control_id) {
-    case 0:
-      return VAL_SOIL_MOISTURE;
-    case 1:
-      return VAL_TEMPERATURE;
-    case 2:
-      return VAL_HUMIDITY;
-    case 3:
-      return VAL_SOLAR_RADIATION;
-    default:
-      return VAL_UNKNOWN;
-  }
-}
-
-String map_control_enum_to_string(int deviceIndex) {
-  switch (deviceIndex) {
-    case VAL_TEMPERATURE:
-      return "Temperature";
-    case VAL_HUMIDITY:
-      return "Humidity";
-    case VAL_SOIL_MOISTURE:
-      return "Soil moisture";
-    case VAL_SOLAR_RADIATION:
-      return "Solar radiation";
-    default:
-      return "Unknown";
-  }
-}
-
-void print_explicit_info(uint8_t* sensor_info) {
-  Serial.print("[Recieved sensor info:");
-  for (int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++) {
-    Serial.print(" " + map_control_enum_to_string(i) + " ");
-    Serial.print(sensor_info[i]);
-  }
-  Serial.println("]");
-}
-
+// When developing for your own Arduino-based platform,
+// please follow the format '(ard;<platform>)'.
 #define AZURE_SDK_CLIENT_USER_AGENT "c%2F" AZ_SDK_VERSION_STRING "(ard;esp32)"
 
 // Utility macros and defines
@@ -140,12 +90,14 @@ static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static unsigned long next_telemetry_send_time_ms = 0;
 static char telemetry_topic[128];
+static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 bool freshData = false;
 
-
 #define INCOMING_DATA_BUFFER_SIZE 128
-char incoming_data[INCOMING_DATA_BUFFER_SIZE];
+#define OUTPUT_DATA_BUFFER_SIZE 128
+static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
+uint16_t outputArray[OUTPUT_DATA_BUFFER_SIZE];
 
 // Auxiliary functions
 #ifndef IOT_CONFIG_USE_X509_CERT
@@ -196,11 +148,10 @@ void receivedCallback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println("");
 }
-
+size_t outputSize = 0;
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
+  char* ptr = incoming_data;
 
-  char* token;
-  static char* delimiter = ",";
 
   switch (event->event_id) {
     int i, r;
@@ -233,49 +184,30 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
       break;
     case MQTT_EVENT_DATA:
       Logger.Info("MQTT event MQTT_EVENT_DATA");
+
       for (i = 0; i < (INCOMING_DATA_BUFFER_SIZE - 1) && i < event->topic_len; i++) {
         incoming_data[i] = event->topic[i];
       }
       incoming_data[i] = '\0';
       Logger.Info("Topic: " + String(incoming_data));
 
-      Logger.Info("Delimiter is: ");
-      Logger.Info(delimiter);
       for (i = 0; i < (INCOMING_DATA_BUFFER_SIZE - 1) && i < event->data_len; i++) {
         incoming_data[i] = event->data[i];
       }
       incoming_data[i] = '\0';
       Logger.Info("Data: " + String(incoming_data));
 
-      // Split the incoming data into three and map to the correct control info
-      token = strtok(incoming_data, delimiter);
-      Logger.Info("token ok");
-
-      if (strcasecmp(token, "soil moisture") == 0) {
-        control_info[0] = VAL_SOIL_MOISTURE;
-      } else if (strcasecmp(token, "temperature") == 0) {
-        control_info[0] = VAL_TEMPERATURE;
-      } else if (strcasecmp(token, "humidity") == 0) {
-        control_info[0] = VAL_HUMIDITY;
-      } else if (strcasecmp(token, "solar radiation") == 0) {
-        control_info[0] = VAL_SOLAR_RADIATION;
-      } else {
-        control_info[0] = VAL_UNKNOWN;
-        Serial.println("Invalid control value");
+      outputSize = 0;
+      while (sscanf(ptr, "%hu,", &outputArray[outputSize]) == 1 && outputSize < sizeof(outputArray) / sizeof(outputArray[0])) {
+        outputSize++;
+        ptr = strchr(ptr, ',');
+        if (ptr) ptr++;
+        else break;
       }
 
-      Logger.Info("strcpm ok");
-
-      token = strtok(NULL, delimiter);
-      control_info[1] = strtol(token, NULL, 10);  // Lower bound
-
-      Logger.Info("[1] ok");
-      token = strtok(NULL, delimiter);
-      control_info[2] = strtol(token, NULL, 10);  // Upper bound
-      Logger.Info("[2] ok");
       printf("Extracted numbers: ");
-      for (size_t i = 0; i < 3; i++) {
-        printf("%d ", control_info[i]);
+      for (size_t i = 0; i < outputSize; i++) {
+        printf("%d ", outputArray[i]);
       }
       printf("\n");
       freshData = true;
@@ -390,10 +322,9 @@ static void generateTelemetryPayload() {
   //JsonObject customNameObject = doc.createNestedObject("customName");  // Change "customName" to your desired name
 
   // Add data to the nested JSON object
-  // doc["msgCount"] = telemetry_send_count++;
-  for (int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++) {
-    doc[map_control_enum_to_string(i)] = sensor_info[i];
-  }
+  doc["msgCount"] = telemetry_send_count++;
+  doc["data_1"] = control_info[0];
+
   // // Create a nested JSON object
   // JsonObject subtopicObject = customNameObject.createNestedObject("subtopic");
   // subtopicObject["testdata"] = 123;
@@ -441,72 +372,33 @@ static void sendTelemetry() {
   }
 }
 
+// Arduino setup and loop main functions.
+
 void setup() {
-  Serial.begin(57600);
   establishConnection();
   lora_setup();
 }
 
-
 void loop() {
-  unsigned long current_millis = millis();
-
-  static unsigned long last_receive_time = millis();
-  static bool lora_receive_mode_flag = false;   // Flag indicating if module is in the receive mode
-  static bool lora_transmit_mode_flag = false;  // Flag indicating if module is in the transmit mode
-  static bool lora_receive_message_flag = false;
-
-  static unsigned int interval_incoming_message_check = 1000;  // 1 second
-
-  /***************************************************************/
-  /*** LORA - RECEIVING SENSOR VALUES FROM THE MAIN CONTROLLER ***/
-  /***************************************************************/
-
-  // Handle receiving
-  if (!lora_transmit_mode_flag && !lora_receive_mode_flag) {
-    lora_receive_mode_flag = true;
-    lora_receive(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Put lora module in receive mode
-  }
-
-  // Check for new messages every 1 seconds
-  if (lora_receive_mode_flag && current_millis - last_receive_time >= interval_incoming_message_check) {
-    check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Check if there is a message that waits to be processed.
-    last_receive_time = current_millis;
-  }
-
-  // Print sensor info if received
-  if (lora_receive_message_flag) {
-    print_explicit_info(sensor_info);
-  }
-
-  /**************************************************************************/
-  /*** LORA - SENDING DESIRED PARAMETERS BOUDARIES TO THE MAIN CONTROLLER ***/
-  /**************************************************************************/
-
-  // Handle transmission every X seconds or as required
-  // TODO change that -> we should send the message if some value should be changed
-  // or we can send the message every X seconds to update the desired value for specified parameter
-  if (freshData) {
-    Serial.print("[communication node] Transmitting new parameters for " + map_control_enum_to_string(map_control_id_to_control_val(control_info[0])));
-    Serial.println(" (" + String(control_info[1]) + " - " + String(control_info[2]) + ")");
-    lora_receive_mode_flag = false;                                                                                                 // Put the lora module to receive mode again after sending the message.
-    check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Firstly, check if there is a message that waits to be processed.
-    lora_transmit_mode_flag = true;
-    lora_transmit(control_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag);  // Pass the receive message flag as we could enter this function with message waiting to be processed.
-    freshData = false;
-  }
-
-
-  /************************************/
-  /*** WIFI AND CLOUD COMMUNICATION ***/
-  /************************************/
-
-  // TODO important -> implement in the non-blocking manner, otherwise lora communication will be blocked
-
   if (WiFi.status() != WL_CONNECTED) {
     connectToWiFi();
   }
-
+  
+  lora_receive(sensor_info, 2);
+  Serial.println("sensor_info is: ");
+  for (int i = 0; i <= 2; i++) {
+    Serial.println(sensor_info[i]);
+  }
+  if (freshData) {
+    Serial.println("New data");
+    lora_transmit(outputArray, outputSize - 1);
+    Serial.println("OutputArray is: ");
+    for (int i = 0; i < outputSize; i++) {
+      Serial.println(outputArray[i]);
+    }
+    freshData = false;
+  }
+  Serial.println("No more fresh data");
 
 #ifndef IOT_CONFIG_USE_X509_CERT
   if (sasToken.IsExpired()) {
@@ -515,33 +407,8 @@ void loop() {
     initializeMqttClient();
   }
 #endif
-  else if (lora_receive_message_flag) {
+  else if (millis() > next_telemetry_send_time_ms) {
     sendTelemetry();
     next_telemetry_send_time_ms = millis() + TELEMETRY_FREQUENCY_MILLISECS;
-    lora_receive_message_flag = false;  // Reset flag after sending
   }
-
-  /**********************************/
-  /********** DEBUGGING PART ********/
-  /**********************************/
-  /*
-  // Print devices boundaries every 5 seconds
-  static unsigned long dbg_last_sent_time = millis();
-  if (current_millis - dbg_last_sent_time >= 3000) {
-    Serial.println("#############################");
-    Serial.println("### DEBUGGING INFORMATION ###");
-    Serial.println("#############################");
-    Serial.println("-----------");
-    Serial.println("ACTUAL SENSOR VALUES:");
-    for (int i = 0; i < 4; i++) {
-      Serial.print("Sensor: ");
-      Serial.print(map_control_enum_to_string(map_control_id_to_control_val(i)));
-      Serial.print(": ");
-      Serial.println(sensor_info[i]);
-    }
-    Serial.println("-----------");
-    Serial.println("#############################");
-    dbg_last_sent_time = current_millis;
-  }
-  */
 }
