@@ -9,7 +9,7 @@ For now, use following files:
  - soil_moisture_sensor 
  - humidity_sensor
  - solar_radiation_sensor
- - lora_test_outside_greenhouse - node outside the greenhouse, we will change the name later
+ - cloud_controller
 
 'heater' is disabled, as connections are limited to previously mentioned sensors and actuators.
 
