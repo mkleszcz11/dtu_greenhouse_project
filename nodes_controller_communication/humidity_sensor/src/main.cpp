@@ -38,6 +38,8 @@
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
 #define DHTPIN 23 // Digital pin connected to the DHT sensor
+#define FANPIN 22 // Digital Pin connected to the Fan
+
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
 BLEService *pService = nullptr; // Pointer to BLE Service
@@ -193,7 +195,7 @@ void setup() {
     
     Serial.println("[Humidity Sensor] Device advertising, waiting for connections...");
     pinMode(LED, OUTPUT);
-
+    pinMode(FANPIN, OUTPUT);
     /*If it's not the starting and setup is run, it means it comes from a deep sleep mode*/
     if(bootCount==0) currentState=FIRST_CONNECTION;
     else if(bootCount==1){
@@ -238,6 +240,8 @@ void loop() {
               Stop actuator
               */
               digitalWrite(LED, LOW);
+              int speed=0;
+              analogWrite(FANPIN, speed);
               transition=false;
               }
               /* ESP goes to sleep when message is acknowledged*/
@@ -264,6 +268,8 @@ void loop() {
                 Start actuator
                 */
                 digitalWrite(LED, HIGH);
+                int speed=70;
+                analogWrite(FANPIN, speed);
                 transition=false; 
               }
               if(messageACK) messageACK=false;

@@ -25,6 +25,7 @@
 #include <BLEUtils.h>
 #include <BLEServer.h>
 #include <math.h>
+#include <ESP32Servo.h>
 
 #define SERVICE_UUID "2E01EA51-1E73-4DAC-886D-08C04C040282"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -34,7 +35,7 @@
 #define CHARACTERISTIC_UUID_ACK "beb5483e-36e1-4688-b7f5-ea07361b26a9"
 #define LED 2
 #define SIGNAL_PIN 36
-
+#define SERVOPIN 22
 
 BLEServer *pServer = nullptr; // Pointer to BLE Server
 BLEService *pService = nullptr; // Pointer to BLE Service
@@ -44,10 +45,13 @@ std::vector<uint32_t> connectionIDs; // Vector to track client connection IDs
 
 unsigned long previousMillis = 0; // Store last time a message was sent.
 const long interval = 30000;       // Interval at which to send message (milliseconds).
+Servo myServo;
+
 
 RTC_DATA_ATTR int bootCount = 0;
 RTC_DATA_ATTR bool stateMachineStarted = false;
 // RTC_DATA_ATTR float safeReadValue=0; /*HARDCODE*/
+
 
 /*State Machine*/
 enum States {
@@ -186,6 +190,7 @@ void setup() {
     
     Serial.println("[Soil Moisture Sensor] Device advertising, waiting for connections...");
     pinMode(LED, OUTPUT);
+    myServo.attach(22);  // attaches the servo on pin 22 to the servo object
 
     /*If it's not the starting and setup is run, it means it comes from a deep sleep mode*/
     if(bootCount==0) currentState=FIRST_CONNECTION;
@@ -227,6 +232,11 @@ void loop() {
               Stop actuator
               */
               digitalWrite(LED, LOW);
+              // Move back to position 0
+              for (int pos = 90; pos >= 0; pos -= 1) { // goes from 90 degrees to 0 degrees
+                myServo.write(pos);              // tell servo to go to position in variable 'pos'
+                delay(15);                       // waits 15ms for the servo to reach the position
+              }
               transition=false;
               }
               /* ESP goes to sleep when message is acknowledged*/
@@ -253,6 +263,11 @@ void loop() {
                 Start actuator
                 */
                 digitalWrite(LED, HIGH);
+                for (int pos = 0; pos <= 90; pos += 1) { // goes from 0 degrees to 90 degrees
+                  // in steps of 1 degree
+                  myServo.write(pos);              // tell servo to go to position in variable 'pos'
+                  delay(15);                       // waits 15ms for the servo to reach the position
+                }
                 transition=false; 
               }
               if(messageACK) messageACK=false;
