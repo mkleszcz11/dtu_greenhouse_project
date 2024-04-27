@@ -23,10 +23,10 @@
 // Lora communication
 #include "lora.h"
 
-#define NUMBER_OF_CONTROLLED_PARAMETERS 4 // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
+#define NUMBER_OF_CONTROLLED_PARAMETERS 4  // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
 
-uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS]; // {soil moisture, temperature, humidity, solar radiation}
-uint8_t control_info[3]; // {value_type, desired_value_lower_bound, desired_value_upper_bound}
+uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS];  // {soil moisture, temperature, humidity, solar radiation}
+uint8_t control_info[3];                               // {value_type, desired_value_lower_bound, desired_value_upper_bound}
 
 /* Flag to indicate if a new LoRa message was received */
 bool new_message_flag = false;
@@ -56,7 +56,7 @@ enum devices {
 
 devices map_device_idx_to_device_name(uint8_t device_idx) {
   switch (device_idx) {
-  case 0:
+    case 0:
       return SOIL_MOISTURE_IDX;
     case 1:
       return SOLAR_RADIATION_IDX;
@@ -69,7 +69,7 @@ devices map_device_idx_to_device_name(uint8_t device_idx) {
 
 parameters map_control_id_to_control_val(uint8_t control_id) {
   switch (control_id) {
-  case 0:
+    case 0:
       return VAL_SOIL_MOISTURE;
     case 1:
       return VAL_TEMPERATURE;
@@ -99,7 +99,7 @@ String map_control_enum_to_string(int deviceIndex) {
 
 void print_explicit_info(uint8_t* sensor_info) {
   Serial.print("[Recieved sensor info:");
-  for(int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++){
+  for (int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++) {
     Serial.print(" " + map_control_enum_to_string(i) + " ");
     Serial.print(sensor_info[i]);
   }
@@ -140,9 +140,10 @@ static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static unsigned long next_telemetry_send_time_ms = 0;
 static char telemetry_topic[128];
-static uint32_t telemetry_send_count = 0;
+//static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 bool freshData = false;
+const char* delimiter = ",";
 
 #define INCOMING_DATA_BUFFER_SIZE 128
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -198,8 +199,8 @@ void receivedCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
-  char* ptr = incoming_data;
-  char *token;
+
+  char* token;
 
   switch (event->event_id) {
     int i, r;
@@ -244,27 +245,28 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
       }
       incoming_data[i] = '\0';
       Logger.Info("Data: " + String(incoming_data));
-
+      Serial.print("Delimiter is: ");
+      Serial.println(delimiter);
       // Split the incoming data into three and map to the correct control info
-      token = strtok(ptr, " ,");
+      token = strtok(incoming_data, delimiter);
 
-      if(strcmp(token, "Soil moisture")){
+      if (strcasecmp(token, "soil moisture") == 0) {
         control_info[0] = VAL_SOIL_MOISTURE;
-      } else if(strcmp(token, "Temperature")){
+      } else if (strcasecmp(token, "temperature") == 0) {
         control_info[0] = VAL_TEMPERATURE;
-      } else if(strcmp(token, "Humidity")){
+      } else if (strcasecmp(token, "humidity") == 0) {
         control_info[0] = VAL_HUMIDITY;
-      } else if(strcmp(token, "Solar radiation")){
+      } else if (strcasecmp(token, "solar radiation") == 0) {
         control_info[0] = VAL_SOLAR_RADIATION;
-      } else{
+      } else {
         control_info[0] = VAL_UNKNOWN;
         Serial.println("Invalid control value");
       }
 
-      token = strtok(NULL, " ,");
-      control_info[1] = strtol(token, NULL, 16); // Lower bound
-      token = strtok(NULL, " ,");
-      control_info[2] = strtol(token, NULL, 16); // Upper bound
+      token = strtok(NULL, delimiter);
+      control_info[1] = strtol(token, NULL, 10);  // Lower bound
+      token = strtok(NULL, delimiter);
+      control_info[2] = strtol(token, NULL, 10);  // Upper bound
 
       printf("Extracted numbers: ");
       for (size_t i = 0; i < 3; i++) {
@@ -384,7 +386,7 @@ static void generateTelemetryPayload() {
 
   // Add data to the nested JSON object
   // doc["msgCount"] = telemetry_send_count++;
-  for(int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++){
+  for (int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++) {
     doc[map_control_enum_to_string(i)] = sensor_info[i];
   }
   // // Create a nested JSON object
@@ -442,84 +444,84 @@ void setup() {
 
 
 void loop() {
-    unsigned long current_millis = millis();
+  unsigned long current_millis = millis();
 
-    static unsigned long last_sent_time = millis();
-    static unsigned long last_receive_time = millis();
-    static bool lora_receive_mode_flag = false; // Flag indicating if module is in the receive mode
-    static bool lora_transmit_mode_flag = false; // Flag indicating if module is in the transmit mode
-    static bool lora_receive_message_flag = false;
+  //static unsigned long last_sent_time = millis();
+  static unsigned long last_receive_time = millis();
+  static bool lora_receive_mode_flag = false;   // Flag indicating if module is in the receive mode
+  static bool lora_transmit_mode_flag = false;  // Flag indicating if module is in the transmit mode
+  static bool lora_receive_message_flag = false;
 
-    static unsigned int interval_incoming_message_check = 1000; // 1 second
+  static unsigned int interval_incoming_message_check = 1000;  // 1 second
 
-    /***************************************************************/
-    /*** LORA - RECEIVING SENSOR VALUES FROM THE MAIN CONTROLLER ***/
-    /***************************************************************/
+  /***************************************************************/
+  /*** LORA - RECEIVING SENSOR VALUES FROM THE MAIN CONTROLLER ***/
+  /***************************************************************/
 
-    // Handle receiving
-    if (!lora_transmit_mode_flag && !lora_receive_mode_flag) {
-        lora_receive_mode_flag = true;
-        lora_receive(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Put lora module in receive mode
-    }
+  // Handle receiving
+  if (!lora_transmit_mode_flag && !lora_receive_mode_flag) {
+    lora_receive_mode_flag = true;
+    lora_receive(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Put lora module in receive mode
+  }
 
-    // Check for new messages every 1 seconds
-    if (lora_receive_mode_flag && current_millis - last_receive_time >= interval_incoming_message_check) {
-		  check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Check if there is a message that waits to be processed.
-    	last_receive_time = current_millis;	
-    }
+  // Check for new messages every 1 seconds
+  if (lora_receive_mode_flag && current_millis - last_receive_time >= interval_incoming_message_check) {
+    check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Check if there is a message that waits to be processed.
+    last_receive_time = current_millis;
+  }
 
-    // Print sensor info if received
-    if (lora_receive_message_flag) {
-        print_explicit_info(sensor_info);
-    }
+  // Print sensor info if received
+  if (lora_receive_message_flag) {
+    print_explicit_info(sensor_info);
+  }
 
-    /**************************************************************************/
-    /*** LORA - SENDING DESIRED PARAMETERS BOUDARIES TO THE MAIN CONTROLLER ***/
-    /**************************************************************************/
+  /**************************************************************************/
+  /*** LORA - SENDING DESIRED PARAMETERS BOUDARIES TO THE MAIN CONTROLLER ***/
+  /**************************************************************************/
 
-    // Handle transmission every X seconds or as required
-    // TODO change that -> we should send the message if some value should be changed
-    // or we can send the message every X seconds to update the desired value for specified parameter
-    if (freshData) {
-      Serial.print("[communication node] Transmitting new parameters for " + map_control_enum_to_string(map_control_id_to_control_val(control_info[0])));
-      Serial.println(" (" + String(control_info[1]) + " - " + String(control_info[2]) + ")");
-      last_sent_time = current_millis;
-      lora_receive_mode_flag = false; // Put the lora module to receive mode again after sending the message.
-      check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag); // Firstly, check if there is a message that waits to be processed.
-      lora_transmit_mode_flag = true;
-      lora_transmit(control_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag); // Pass the receive message flag as we could enter this function with message waiting to be processed.
-      freshData = false;
-    }
-
-
-    /************************************/
-    /*** WIFI AND CLOUD COMMUNICATION ***/
-    /************************************/
-
-    // TODO important -> implement in the non-blocking manner, otherwise lora communication will be blocked
-
-    if (WiFi.status() != WL_CONNECTED) {
-      connectToWiFi();
-    }
+  // Handle transmission every X seconds or as required
+  // TODO change that -> we should send the message if some value should be changed
+  // or we can send the message every X seconds to update the desired value for specified parameter
+  if (freshData) {
+    Serial.print("[communication node] Transmitting new parameters for " + map_control_enum_to_string(map_control_id_to_control_val(control_info[0])));
+    Serial.println(" (" + String(control_info[1]) + " - " + String(control_info[2]) + ")");
+    //last_sent_time = current_millis;
+    lora_receive_mode_flag = false;                                                                                                 // Put the lora module to receive mode again after sending the message.
+    check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Firstly, check if there is a message that waits to be processed.
+    lora_transmit_mode_flag = true;
+    lora_transmit(control_info, 3, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag);  // Pass the receive message flag as we could enter this function with message waiting to be processed.
+    freshData = false;
+  }
 
 
-    #ifndef IOT_CONFIG_USE_X509_CERT
-    if (sasToken.IsExpired()) {
-      Logger.Info("SAS token expired; reconnecting with a new one.");
-      (void)esp_mqtt_client_destroy(mqtt_client);
-      initializeMqttClient();
-    }
-    #endif
-    else if (lora_receive_message_flag) {
-      sendTelemetry();
-      next_telemetry_send_time_ms = millis() + TELEMETRY_FREQUENCY_MILLISECS;
-      lora_receive_message_flag = false; // Reset flag after sending
-    }
+  /************************************/
+  /*** WIFI AND CLOUD COMMUNICATION ***/
+  /************************************/
 
-	/**********************************/
-	/********** DEBUGGING PART ********/
-	/**********************************/
+  // TODO important -> implement in the non-blocking manner, otherwise lora communication will be blocked
 
+  if (WiFi.status() != WL_CONNECTED) {
+    connectToWiFi();
+  }
+
+
+#ifndef IOT_CONFIG_USE_X509_CERT
+  if (sasToken.IsExpired()) {
+    Logger.Info("SAS token expired; reconnecting with a new one.");
+    (void)esp_mqtt_client_destroy(mqtt_client);
+    initializeMqttClient();
+  }
+#endif
+  else if (lora_receive_message_flag) {
+    sendTelemetry();
+    next_telemetry_send_time_ms = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+    lora_receive_message_flag = false;  // Reset flag after sending
+  }
+
+  /**********************************/
+  /********** DEBUGGING PART ********/
+  /**********************************/
+  /*
 	// Print devices boundaries every 5 seconds
 	static unsigned long dbg_last_sent_time = millis();
 	if (current_millis - dbg_last_sent_time >= 3000) {
@@ -538,5 +540,5 @@ void loop() {
 		Serial.println("#############################");
 		dbg_last_sent_time = current_millis;
 	}
-
+*/
 }

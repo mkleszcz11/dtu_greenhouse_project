@@ -258,12 +258,6 @@ static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
         control_info[0] = VAL_HUMIDITY;
       } else if (strcasecmp(token, "solar radiation") == 0) {
         control_info[0] = VAL_SOLAR_RADIATION;
-      } else if (strcasecmp(token, "delimiter") == 0) {
-        token = strtok(NULL, delimiter);
-        const char* delimiter = token;
-        Serial.print("Delimiter changed to: ");
-        Serial.println(delimiter);
-        break;
       } else {
         control_info[0] = VAL_UNKNOWN;
         Serial.println("Invalid control value");
