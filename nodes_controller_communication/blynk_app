@@ -1,0 +1,74 @@
+#define BLYNK_PRINT Serial
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <DHT.h>
+#include <ESP32Servo.h>
+
+#define BLYNK_TEMPLATE_ID "TMPL5jJAdN4Fv"
+#define BLYNK_TEMPLATE_NAME "Quickstart Template"
+#define BLYNK_DEVICE_NAME "ESP32_main"
+#define BLYNK_AUTH_TOKEN "KgQj5Nn52JJJDQgnuPi24pWjMRTIsuJz"
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "iPhone di Marica";  // type your wifi name
+char pass[] = "ciao4sdn";  // type your wifi password
+
+BlynkTimer timer;
+
+#define BLYNK_PRINT Serial
+#define DHTPIN 22 
+#define DHTTYPE DHT11  
+#define SOIL_MOISTURE_PIN 23 
+#define WATER_LEVEL_PIN 4 
+#define SERVO_PIN 15
+
+
+DHT dht(DHTPIN, DHTTYPE);
+Servo myServo;
+int relaypin = 5; // Fan blade pin
+void sendSensor()
+{
+  int soilmoisture = analogRead(SOIL_MOISTURE_PIN);  // Read from the soil moisture sensor
+  int soilmoisturepercentage = map(soilmoisture, 3500, 4095, 100, 0);
+  float h = dht.readHumidity();
+  float t = dht.readTemperature(); // or dht.readTemperature(true) for Fahrenheit
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  // You can send any value at any time.
+  // Please don't send more than 10 values per second.
+  Blynk.virtualWrite(V0, soilmoisturepercentage);
+  Blynk.virtualWrite(V1, t);
+  Blynk.virtualWrite(V2, h);
+  Serial.print("Soil Moisture : ");
+  Serial.print(soilmoisturepercentage);
+  Serial.print(" Temperature : ");
+  Serial.print(t);
+  Serial.print("    Humidity : ");
+  Serial.println(h);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+
+  Blynk.begin(auth, ssid, pass);
+  dht.begin();
+  timer.setInterval(100L, sendSensor);
+  myServo.attach(SERVO_PIN);
+  pinMode(relaypin, OUTPUT);
+}
+
+void loop()
+{
+  Blynk.run();
+
+  BLYNK_WRITE(V3) // Slider Widget for Servo 1 on V3
+{
+  int pos1 = param.asInt(); // Get value from slider
+  servo1.write(pos1); // Set servo 1 position
+  Blynk.virtualWrite(V3, pos1);
+}
+  timer.run();
+}
