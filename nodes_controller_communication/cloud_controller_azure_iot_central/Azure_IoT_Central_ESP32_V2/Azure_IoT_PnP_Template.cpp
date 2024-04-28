@@ -418,7 +418,7 @@ static int generate_telemetry_payload(
   // humidity = static_cast<float>(sensor_humidity);
   // soilMoisture = static_cast<float>(sensor_soilMoisture);
   // waterLevel = static_cast<float>(sensor_waterLevel);
-
+  //sensor_info[0] = 111;
   temperature = static_cast<float>(sensor_info[0]);
   humidity = static_cast<float>(sensor_info[1]);
   soilMoisture = static_cast<float>(sensor_info[2]);

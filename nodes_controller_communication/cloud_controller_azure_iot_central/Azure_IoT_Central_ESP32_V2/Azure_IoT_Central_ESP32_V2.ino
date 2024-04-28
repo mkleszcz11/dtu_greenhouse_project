@@ -38,7 +38,7 @@ uint8_t control_info[2];                               // {topic_type,value}
 bool new_message_flag = false;
 
 // Enumeration for control parameters, it MUST be aligned to enum in the main controller
-enum parameters {
+enum control_parameters {
   VAL_TEMPERATURE_MINIMUM = 0,
   VAL_TEMPERATURE_MAXIMUM = 1,
   VAL_HUMIDITY_MINIMUM = 2,
@@ -47,8 +47,17 @@ enum parameters {
   VAL_SOIL_MOISTURE_MAXIMUM = 5,
   VAL_WATER_LEVEL_MINIMUM = 6,
   VAL_WATER_LEVEL_MAXIMUM = 7,
-  VAL_UNKNOWN = 8
+  VAL_UNKNOWN_CONTROL = 8
 };
+
+enum sensor_parameters {
+  VAL_TEMPERATURE = 0,
+  VAL_HUMIDITY = 1,
+  VAL_SOIL_MOISTURE = 2,
+  VAL_WATER_LEVEL = 3,
+  VAL_UNKNOWN_SENSOR = 4
+};
+
 
 enum devices {
   SOIL_MOISTURE_IDX = 0,
@@ -70,7 +79,7 @@ devices map_device_idx_to_device_name(uint8_t device_idx) {
   }
 }
 
-parameters map_control_id_to_control_val(uint8_t control_id) {
+control_parameters map_control_id_to_control_val(uint8_t control_id) {
   switch (control_id) {
     case 0:
       return VAL_TEMPERATURE_MINIMUM;
@@ -89,35 +98,65 @@ parameters map_control_id_to_control_val(uint8_t control_id) {
     case 7:
       return VAL_WATER_LEVEL_MAXIMUM;
     default:
-      return VAL_UNKNOWN;
+      return VAL_UNKNOWN_CONTROL;
   }
 }
 
+sensor_parameters map_control_id_to_sensor_val(uint8_t sensor_id) {
+  switch (sensor_id) {
+    case 0:
+      return VAL_TEMPERATURE;
+    case 1:
+      return VAL_HUMIDITY;
+    case 2:
+      return VAL_SOIL_MOISTURE;
+    case 3:
+      return VAL_WATER_LEVEL;
+    default:
+      return VAL_UNKNOWN_SENSOR;
+  }
+}
+
+// String map_control_enum_to_string(int deviceIndex) {
+//   switch (deviceIndex) {
+//     case VAL_TEMPERATURE_MINIMUM:
+//       return "TemperatureMin";
+//     case VAL_TEMPERATURE_MAXIMUM:
+//       return "TemperatureMax";
+//     case VAL_HUMIDITY_MINIMUM:
+//       return "HumidityMin";
+//     case VAL_HUMIDITY_MAXIMUM:
+//       return "HumidityMax";
+//     case VAL_SOIL_MOISTURE_MINIMUM:
+//       return "SoilMoistureMin";
+//     case VAL_SOIL_MOISTURE_MAXIMUM:
+//       return "SoilMoistureMax";
+//     case VAL_WATER_LEVEL_MINIMUM:
+//       return "WaterLevelMin";
+//     case VAL_WATER_LEVEL_MAXIMUM:
+//       return "WaterLevelMax";
+//     default:
+//       return "Unknown";
+//   }
+// }
+
 String map_control_enum_to_string(int deviceIndex) {
   switch (deviceIndex) {
-    case VAL_TEMPERATURE_MINIMUM:
-      return "TemperatureMin";
-    case VAL_TEMPERATURE_MAXIMUM:
-      return "TemperatureMax";
-    case VAL_HUMIDITY_MINIMUM:
-      return "HumidityMin";
-    case VAL_HUMIDITY_MAXIMUM:
-      return "HumidityMax";
-    case VAL_SOIL_MOISTURE_MINIMUM:
-      return "SoilMoistureMin";
-    case VAL_SOIL_MOISTURE_MAXIMUM:
-      return "SoilMoistureMax";
-    case VAL_WATER_LEVEL_MINIMUM:
-      return "WaterLevelMin";
-    case VAL_WATER_LEVEL_MAXIMUM:
-      return "WaterLevelMax";
+    case VAL_TEMPERATURE:
+      return "Temperature";
+    case VAL_HUMIDITY:
+      return "Humidity";
+    case VAL_SOIL_MOISTURE:
+      return "SoilMoisture";
+    case VAL_WATER_LEVEL:
+      return "WaterLevel";
     default:
       return "Unknown";
   }
 }
 
 void print_explicit_info(uint8_t* sensor_info) {
-  Serial.print("[Recieved sensor info:");
+  Serial.print("[Received sensor info:");
   for (int i = 0; i < NUMBER_OF_CONTROLLED_PARAMETERS; i++) {
     Serial.print(" " + map_control_enum_to_string(i) + " ");
     Serial.print(sensor_info[i]);
@@ -755,7 +794,7 @@ static esp_err_t esp_mqtt_event_handler(esp_mqtt_event_handle_t event) {
       } else if (strcmp(received_topic, "SetSoilMoistureMaximum") == 0) {
         control_info[0] = VAL_SOIL_MOISTURE_MAXIMUM;
       } else {
-        control_info[0] = VAL_UNKNOWN;
+        control_info[0] = VAL_UNKNOWN_CONTROL;
         Serial.println("Invalid control value");
       }
 
@@ -773,7 +812,7 @@ static esp_err_t esp_mqtt_event_handler(esp_mqtt_event_handle_t event) {
           event->topic_len,
           event->topic);
       }
-      if (control_info[0] != VAL_UNKNOWN) {
+      if (control_info[0] != VAL_UNKNOWN_CONTROL) {
         fresh_data_transmit = true;
       }
       
