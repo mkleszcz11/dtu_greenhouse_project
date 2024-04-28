@@ -37,6 +37,8 @@
 
 #define TELEMETRY_PROP_NAME_TEMPERATURE "temperature"
 #define TELEMETRY_PROP_NAME_HUMIDITY "humidity"
+#define TELEMETRY_PROP_NAME_SOIL_MOISTURE "soilMoisture"
+#define TELEMETRY_PROP_NAME_WATER_LEVEL "waterLevel"
 
 
 static az_span COMMAND_NAME_TOGGLE_LED_1 = AZ_SPAN_FROM_STR("ToggleLed1");
@@ -391,12 +393,14 @@ int azure_pnp_handle_properties_update(
 /* --- Internal Functions --- */
 
 
-static float simulated_get_humidity() {
-  return 88.0;
-}
+// static float simulated_get_humidity() {
+//   return 88.0;
+// }
 
-extern uint8_t sensor_temp;
-extern uint8_t sensor_humid;
+extern uint8_t sensor_temperature;
+extern uint8_t sensor_humidity;
+extern uint8_t sensor_soilMoisture;
+extern uint8_t sensor_waterLevel;
 
 static int generate_telemetry_payload(
   uint8_t* payload_buffer,
@@ -406,11 +410,13 @@ static int generate_telemetry_payload(
   az_result rc;
   az_span payload_buffer_span = az_span_create(payload_buffer, payload_buffer_size);
   az_span json_span;
-  float temperature, humidity;
+  float temperature, humidity, soilMoisture, waterLevel;
 
   // Acquiring the simulated data.
-  temperature = static_cast<float>(sensor_temp);
-  humidity = static_cast<float>(sensor_humid);
+  temperature = static_cast<float>(sensor_temperature);
+  humidity = static_cast<float>(sensor_humidity);
+  soilMoisture = static_cast<float>(sensor_soilMoisture);
+  waterLevel = static_cast<float>(sensor_waterLevel);
 
   rc = az_json_writer_init(&jw, payload_buffer_span, NULL);
   EXIT_IF_AZ_FAILED(rc, RESULT_ERROR, "Failed initializing json writer for telemetry.");
@@ -430,6 +436,18 @@ static int generate_telemetry_payload(
   rc = az_json_writer_append_double(&jw, humidity, DOUBLE_DECIMAL_PLACE_DIGITS);
   EXIT_IF_AZ_FAILED(
     rc, RESULT_ERROR, "Failed adding humidity property value to telemetry payload. ");
+
+  rc = az_json_writer_append_property_name(&jw, AZ_SPAN_FROM_STR(TELEMETRY_PROP_NAME_SOIL_MOISTURE));
+  EXIT_IF_AZ_FAILED(rc, RESULT_ERROR, "Failed adding soil moisture property name to telemetry payload.");
+  rc = az_json_writer_append_double(&jw, soilMoisture, DOUBLE_DECIMAL_PLACE_DIGITS);
+  EXIT_IF_AZ_FAILED(
+    rc, RESULT_ERROR, "Failed adding soil moisture property value to telemetry payload. ");
+
+  rc = az_json_writer_append_property_name(&jw, AZ_SPAN_FROM_STR(TELEMETRY_PROP_NAME_WATER_LEVEL));
+  EXIT_IF_AZ_FAILED(rc, RESULT_ERROR, "Failed adding water level property name to telemetry payload.");
+  rc = az_json_writer_append_double(&jw, waterLevel, DOUBLE_DECIMAL_PLACE_DIGITS);
+  EXIT_IF_AZ_FAILED(
+    rc, RESULT_ERROR, "Failed adding water level property value to telemetry payload. ");
 
   rc = az_json_writer_append_end_object(&jw);
   EXIT_IF_AZ_FAILED(rc, RESULT_ERROR, "Failed closing telemetry json payload.");

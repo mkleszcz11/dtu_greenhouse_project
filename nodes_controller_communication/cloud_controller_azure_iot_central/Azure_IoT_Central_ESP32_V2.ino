@@ -32,7 +32,7 @@
 #define NUMBER_OF_CONTROLLED_PARAMETERS 4  // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
 
 uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS];  // {soil moisture, temperature, humidity, solar radiation}
-uint8_t control_info[2];                               // {value_type, desired_value_lower_bound, desired_value_upper_bound}
+uint8_t control_info[2];                               // {value_type, desired_value_lower_bound}
 
 /* Flag to indicate if a new LoRa message was received */
 bool new_message_flag = false;
@@ -789,8 +789,11 @@ static esp_err_t esp_mqtt_event_handler(esp_mqtt_event_handle_t event) {
   return ESP_OK;
 }
 
-uint8_t sensor_temp = 22;
-uint8_t sensor_humid = 24;
+uint8_t sensor_temperature = 22;
+uint8_t sensor_humidity = 24;
+uint8_t sensor_soilMoisture = 70;
+uint8_t sensor_waterLevel = 98;
+
 
 static void logging_function(log_level_t log_level, char const* const format, ...) {
   struct tm* ptm;
