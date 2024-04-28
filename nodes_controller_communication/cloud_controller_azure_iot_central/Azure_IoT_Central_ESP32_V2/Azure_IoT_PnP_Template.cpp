@@ -401,6 +401,7 @@ extern uint8_t sensor_temperature;
 extern uint8_t sensor_humidity;
 extern uint8_t sensor_soilMoisture;
 extern uint8_t sensor_waterLevel;
+extern uint8_t sensor_info[4];
 
 static int generate_telemetry_payload(
   uint8_t* payload_buffer,
@@ -413,10 +414,15 @@ static int generate_telemetry_payload(
   float temperature, humidity, soilMoisture, waterLevel;
 
   // Acquiring the simulated data.
-  temperature = static_cast<float>(sensor_temperature);
-  humidity = static_cast<float>(sensor_humidity);
-  soilMoisture = static_cast<float>(sensor_soilMoisture);
-  waterLevel = static_cast<float>(sensor_waterLevel);
+  // temperature = static_cast<float>(sensor_temperature);
+  // humidity = static_cast<float>(sensor_humidity);
+  // soilMoisture = static_cast<float>(sensor_soilMoisture);
+  // waterLevel = static_cast<float>(sensor_waterLevel);
+
+  temperature = static_cast<float>(sensor_info[0]);
+  humidity = static_cast<float>(sensor_info[1]);
+  soilMoisture = static_cast<float>(sensor_info[2]);
+  waterLevel = static_cast<float>(sensor_info[3]);
 
   rc = az_json_writer_init(&jw, payload_buffer_span, NULL);
   EXIT_IF_AZ_FAILED(rc, RESULT_ERROR, "Failed initializing json writer for telemetry.");

@@ -32,7 +32,7 @@
 #define NUMBER_OF_CONTROLLED_PARAMETERS 4  // Number of parameters controled - Temperature, Humidity, Solar Radiation and Soil Moisture.
 
 uint8_t sensor_info[NUMBER_OF_CONTROLLED_PARAMETERS];  // {soil moisture, temperature, humidity, solar radiation}
-uint8_t control_info[2];                               // {value_type, desired_value_lower_bound}
+uint8_t control_info[2];                               // {topic_type,value}
 
 /* Flag to indicate if a new LoRa message was received */
 bool new_message_flag = false;
@@ -174,7 +174,7 @@ static bool send_device_info = true;
 static bool azure_initial_connect = false;  //Turns true when ESP32 successfully connects to Azure IoT Central for the first time
 
 // Identifier to trigger LoRa transmission to main controller
-bool fresh_data = false;
+bool fresh_data_transmit = false;
 
 // Define a global uint8_t array to store the payload
 #define MAX_PAYLOAD_SIZE 256  // Adjust the size according to your payload size
@@ -518,7 +518,7 @@ void loop() {
         // Handle transmission every X seconds or as required
         // TODO change that -> we should send the message if some value should be changed
         // or we can send the message every X seconds to update the desired value for specified parameter
-        if (fresh_data) {
+        if (fresh_data_transmit) {
           Serial.print("[communication node] Transmitting new parameters for " + map_control_enum_to_string(map_control_id_to_control_val(control_info[0])));
           Serial.println(" (" + String(control_info[1]) + ")");
           //last_sent_time = current_millis;
@@ -526,7 +526,7 @@ void loop() {
           check_for_incoming_message(sensor_info, NUMBER_OF_CONTROLLED_PARAMETERS, &lora_receive_mode_flag, &lora_receive_message_flag);  // Firstly, check if there is a message that waits to be processed.
           lora_transmit_mode_flag = true;
           lora_transmit(control_info, 2, &lora_transmit_mode_flag, &lora_receive_mode_flag, &lora_receive_message_flag);  // Pass the receive message flag as we could enter this function with message waiting to be processed.
-          fresh_data = false;
+          fresh_data_transmit = false;
         }
 
 
@@ -774,7 +774,7 @@ static esp_err_t esp_mqtt_event_handler(esp_mqtt_event_handle_t event) {
           event->topic);
       }
       if (control_info[0] != VAL_UNKNOWN) {
-        fresh_data = true;
+        fresh_data_transmit = true;
       }
       
       break;
