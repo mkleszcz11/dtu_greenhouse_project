@@ -146,10 +146,10 @@ enum SensorActuatorIndex {
 /* Array to store all controlled parameters information. */
 SensorActuatorConfig controlPairs[NUMBER_OF_CONTROLLED_PARAMETERS] = {
   // LATER: Change limits
-  SensorActuatorConfig(0, 2, HUMIDITY_TEMPERATURE_SENSOR),  // Temperature
-  SensorActuatorConfig(0, 2, HUMIDITY_TEMPERATURE_SENSOR),  // Humidity 
-  SensorActuatorConfig(0, 2, SOIL_MOISTURE_SENSOR),         // Soil moisture
-  SensorActuatorConfig(0, 2, WATER_LEVEL_SENSOR)        // Water Level
+  SensorActuatorConfig(0, 2, HUMIDITY_TEMPERATURE_SENSOR),  // Temperature index 0
+  SensorActuatorConfig(0, 2, HUMIDITY_TEMPERATURE_SENSOR),  // Humidity index 1
+  SensorActuatorConfig(0, 2, SOIL_MOISTURE_SENSOR),         // Soil moisture index 2
+  SensorActuatorConfig(0, 2, WATER_LEVEL_SENSOR)        // Water Level index 3
 
 };
 
@@ -467,42 +467,42 @@ void print_explicit_info(uint8_t* control_info) {
   control_values val_to_control = map_code_to_parameter_idx(control_info[0]);
   switch (val_to_control) {
     case VAL_TEMPERATURE_MINIMUM:
-      controlPairs[control_info[0]].lowBoundary = control_info[1];
+      controlPairs[TEMPERATURE_WINDOW].lowBoundary = control_info[1];
       Serial.print("Temperature minimum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_TEMPERATURE_MAXIMUM:
-      controlPairs[control_info[0]].highBoundary = control_info[1];
+      controlPairs[TEMPERATURE_WINDOW].highBoundary = control_info[1];
       Serial.print("Temperature maximum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_HUMIDITY_MINIMUM:
-      controlPairs[control_info[0]].lowBoundary = control_info[1];
+      controlPairs[HUMIDITY_WINDOW].lowBoundary = control_info[1];
       Serial.print("Humidity minimum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_HUMIDITY_MAXIMUM:
-      controlPairs[control_info[0]].highBoundary = control_info[1];
+      controlPairs[HUMIDITY_WINDOW].highBoundary = control_info[1];
       Serial.print("Humidity maximum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_SOIL_MOISTURE_MINIMUM:
-      controlPairs[control_info[0]].lowBoundary = control_info[1];
+      controlPairs[SOIL_MOISTURE_WATER_PUMP].lowBoundary = control_info[1];
       Serial.print("Soil moisture minimum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_SOIL_MOISTURE_MAXIMUM:
-      controlPairs[control_info[0]].highBoundary = control_info[1];
+      controlPairs[SOIL_MOISTURE_WATER_PUMP].highBoundary = control_info[1];
       Serial.print("Soil moisture maximum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_WATER_LEVEL_MINIMUM:
-      controlPairs[control_info[0]].lowBoundary = control_info[1];
+      controlPairs[WATER_LEVEL_LIGHT].lowBoundary = control_info[1];
       Serial.print("Water level minimum: ");
       Serial.println(control_info[1]);
       break;
     case VAL_WATER_LEVEL_MAXIMUM:
-      controlPairs[control_info[0]].highBoundary = control_info[1];
+      controlPairs[WATER_LEVEL_LIGHT].highBoundary = control_info[1];
       Serial.print("Water level maximum: ");
       Serial.println(control_info[1]);
       break;
