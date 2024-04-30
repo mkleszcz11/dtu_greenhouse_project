@@ -1,3 +1,5 @@
+/* code should be implemented on the main scripts of each node rather than Main Controller to have real-time measurements / control
+of sensors and actuators */
 #define BLYNK_PRINT Serial
 #include <WiFi.h>
 #include <BlynkSimpleEsp32.h>
@@ -15,11 +17,11 @@ char pass[] = "ciao4sdn";  // type your wifi password
 BlynkTimer timer;
 
 #define BLYNK_PRINT Serial
-#define DHTPIN 22 
+#define DHTPIN 22 // pins of each sensor and actuators  
 #define DHTTYPE DHT11  
-#define SOIL_MOISTURE_PIN 23 
-#define WATER_LEVEL_PIN 4 
-#define SERVO_PIN 15
+#define SOIL_MOISTURE_PIN 32 
+#define WATER_LEVEL_PIN 36
+#define SERVO_PIN 23
 
 
 DHT dht(DHTPIN, DHTTYPE);
