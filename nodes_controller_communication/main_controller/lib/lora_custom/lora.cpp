@@ -88,7 +88,7 @@ void lora_setup()
     str = loraSerial.readStringUntil('\n');
     Serial.println(str);
 
-    loraSerial.println("radio set sf sf12");
+    loraSerial.println("radio set sf sf8");
     str = loraSerial.readStringUntil('\n');
     Serial.println(str);
 

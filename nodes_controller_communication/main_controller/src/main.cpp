@@ -620,8 +620,8 @@ void loop()
     // /*** LORA - SENDING SENSOR VALUES TO THE REMOTE NODE ***/
     // /*******************************************************/
 
-    // Transmit sensor info every 10 seconds
-    if (current_millis - last_sent_time >= 10000) { // current_millis - last_sent_time >= 10000 &&
+    // Transmit sensor info every 10 minutes
+    if (current_millis - last_sent_time >= 600000) { // current_millis - last_sent_time >= 10000 &&
                                                     // !lora_receive_mode_flag) {
         lora_receive_mode_flag = false; // Put the lora module to receive mode again
                                         // after sending the message.
