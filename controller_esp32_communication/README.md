@@ -1,1 +1,0 @@
-### Code to communicate external ESP32 with cloud via WiFi.

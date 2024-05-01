@@ -10,12 +10,11 @@
 #define SERIAL_LOGGER_BAUD_RATE 115200
 #endif
 
-class SerialLogger
-{
+class SerialLogger {
 public:
-  SerialLogger();
-  void Info(String message);
-  void Error(String message);
+    SerialLogger();
+    void Info(String message);
+    void Error(String message);
 };
 
 extern SerialLogger Logger;

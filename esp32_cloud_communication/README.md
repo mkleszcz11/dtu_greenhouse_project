@@ -1,1 +1,0 @@
-### Code to communicate main controller with external ESP32 via LoRa.
